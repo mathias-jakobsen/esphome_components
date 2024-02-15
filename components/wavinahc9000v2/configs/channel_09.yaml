@@ -4,6 +4,7 @@ sensor:
     name:                   ${name} Temperature ${channel_09_friendly_name}
     id:                     ${device}_temp_${channel_09_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               ${show_temperature_sensors}
     custom_command: 
       - 0x01
       - 0x43
@@ -23,6 +24,7 @@ sensor:
     name:                   ${name} Battery ${channel_09_friendly_name}
     id:                     ${device}_battery_${channel_09_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               ${show_battery_sensors}
     custom_command: 
       - 0x01
       - 0x43
@@ -43,6 +45,7 @@ binary_sensor:
     name:                   ${name} Output ${channel_09_friendly_name}
     id:                     ${device}_output_${channel_09_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
@@ -58,6 +61,7 @@ number:
     name:                   ${name} Target Temperature ${channel_09_friendly_name}
     id:                     ${device}_target_temp_${channel_09_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command: 
       - 0x01
       - 0x43
@@ -86,6 +90,7 @@ switch:
     name:                   ${name} Standby ${channel_09_friendly_name}
     id:                     ${device}_standby_${channel_09_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
@@ -94,7 +99,7 @@ switch:
       - $channel_09
       - 0x01
     write_lambda: |-
-      ESP_LOGD("main","Modbus Switch incoming state for channel 09 = %s",ONOFF(x));
+      ESP_LOGD("main","Modbus Switch incoming state for channel 01 = %s",ONOFF(x));
       bool state = ONOFF(x);
       uint8_t MODE_MASK = 0x07;
       payload.push_back(0x01);
@@ -120,7 +125,7 @@ switch:
       return true;
     lambda: |-
       int mode = data[1];
-      ESP_LOGD("main","MODE for Channel 09 is: %i",mode);    
+      ESP_LOGD("main","MODE for Channel 01 is: %i",mode);    
       return mode;
 
 # ----------- Climate ----------- #

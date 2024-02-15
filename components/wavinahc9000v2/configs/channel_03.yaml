@@ -4,6 +4,7 @@ sensor:
     name:                   ${name} Temperature ${channel_03_friendly_name}
     id:                     ${device}_temp_${channel_03_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               ${show_temperature_sensors}
     custom_command: 
       - 0x01
       - 0x43
@@ -23,6 +24,7 @@ sensor:
     name:                   ${name} Battery ${channel_03_friendly_name}
     id:                     ${device}_battery_${channel_03_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               ${show_battery_sensors}
     custom_command: 
       - 0x01
       - 0x43
@@ -43,6 +45,7 @@ binary_sensor:
     name:                   ${name} Output ${channel_03_friendly_name}
     id:                     ${device}_output_${channel_03_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
@@ -58,6 +61,7 @@ number:
     name:                   ${name} Target Temperature ${channel_03_friendly_name}
     id:                     ${device}_target_temp_${channel_03_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command: 
       - 0x01
       - 0x43
@@ -86,6 +90,7 @@ switch:
     name:                   ${name} Standby ${channel_03_friendly_name}
     id:                     ${device}_standby_${channel_03_id}
     modbus_controller_id:   ${device}_modbus_controller
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
