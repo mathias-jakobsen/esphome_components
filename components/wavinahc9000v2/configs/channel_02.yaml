@@ -136,3 +136,6 @@ climate:
     target_temp_number_id:  ${device}_target_temp_${channel_02_id}
     mode_switch_sensor_id:  ${device}_standby_${channel_02_id}
     action_sensor_id:       ${device}_output_${channel_02_id}
+    visual:
+     temperature_step:
+      current_temperature: 0.1
