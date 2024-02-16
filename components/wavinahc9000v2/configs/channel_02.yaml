@@ -139,3 +139,4 @@ climate:
     visual:
      temperature_step:
       current_temperature: 0.1
+      target_temperature: 0.5
