@@ -1,8 +1,8 @@
 # ----------- Sensor ----------- #
 sensor:
   - platform:               modbus_controller
-    name:                   ${entity_name} Temperature
-    id:                     ${entity_id}_temperature
+    name:                   ${entity_name} Climate Temperature
+    id:                     ${entity_id}_climate_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${hide_temperature_entity}
     custom_command: 
@@ -21,8 +21,8 @@ sensor:
       - multiply: 0.1
   # Battery
   - platform:               modbus_controller
-    name:                   ${entity_name} Battery
-    id:                     ${entity_id}_battery
+    name:                   ${entity_name} Climate Battery
+    id:                     ${entity_id}_climate_battery
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${hide_battery_entity}
     custom_command: 
@@ -42,8 +42,8 @@ sensor:
 # ----------- Binary ----------- #
 binary_sensor:
   - platform:               modbus_controller
-    name:                   ${entity_name} Output
-    id:                     ${entity_id}_output
+    name:                   ${entity_name} Climate Output
+    id:                     ${entity_id}_climate_output
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command:
@@ -58,8 +58,8 @@ binary_sensor:
 # ----------- Number ----------- #
 number:
   - platform:               modbus_controller
-    name:                   ${entity_name} Target Temperature
-    id:                     ${entity_id}_target_temperature
+    name:                   ${entity_name} Climate Target Temperature
+    id:                     ${entity_id}_climate_target_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command: 
@@ -87,8 +87,8 @@ number:
 # ----------- Switch ----------- #
 switch:
   - platform:               modbus_controller
-    name:                   ${entity_name} Standby
-    id:                     ${entity_id}_standby
+    name:                   ${entity_name} Climate Standby
+    id:                     ${entity_id}_climate_standby
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command:
@@ -132,10 +132,10 @@ switch:
 climate:
   - platform:               wavinahc9000v2
     name:                   ${entity_name}
-    current_temp_sensor_id: ${entity_id}_temperature
-    target_temp_number_id:  ${entity_id}_target_temperature
-    mode_switch_sensor_id:  ${entity_id}_standby
-    action_sensor_id:       ${entity_id}_output
+    current_temp_sensor_id: ${entity_id}_climate_temperature
+    target_temp_number_id:  ${entity_id}_climate_target_temperature
+    mode_switch_sensor_id:  ${entity_id}_climate_standby
+    action_sensor_id:       ${entity_id}_climate_output
     visual:
       temperature_step:
         current_temperature: 0.1
