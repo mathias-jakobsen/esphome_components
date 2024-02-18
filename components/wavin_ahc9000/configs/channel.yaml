@@ -131,7 +131,7 @@ switch:
 # ----------- Climate ----------- #
 climate:
   - platform:               wavinahc9000v2
-    name:                   ${entity_name}
+    name:                   ${entity_name} Climate
     current_temp_sensor_id: ${entity_id}_climate_temperature
     target_temp_number_id:  ${entity_id}_climate_target_temperature
     mode_switch_sensor_id:  ${entity_id}_climate_standby
