@@ -4,7 +4,7 @@ sensor:
     name:                   ${entity_name} Climate Temperature
     id:                     ${entity_id}_climate_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               ${hide_temperature_entity}
+    internal:               ${entity_hide_temperature_sensor}
     custom_command: 
       - 0x01
       - 0x43
@@ -24,7 +24,7 @@ sensor:
     name:                   ${entity_name} Climate Battery
     id:                     ${entity_id}_climate_battery
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               ${hide_battery_entity}
+    internal:               ${entity_hide_battery_sensor}
     custom_command: 
       - 0x01
       - 0x43
