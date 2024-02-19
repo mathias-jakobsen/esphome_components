@@ -1,4 +1,4 @@
-!include
+<< !include
   file: channel.yaml
   vars:
     channel_id: ${channel_15_id}
