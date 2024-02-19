@@ -131,11 +131,11 @@ switch:
 # ----------- Climate ----------- #
 climate:
   - platform:               wavin_ahc9000
-    name:                   ${entity_name} Climate
-    current_temp_sensor_id: ${entity_id}_climate_temperature
-    target_temp_number_id:  ${entity_id}_climate_target_temperature
-    mode_switch_sensor_id:  ${entity_id}_climate_standby
-    action_sensor_id:       ${entity_id}_climate_output
+    name:                   ${entity_name}
+    current_temp_sensor_id: ${entity_id}_temperature
+    target_temp_number_id:  ${entity_id}_target_temperature
+    mode_switch_sensor_id:  ${entity_id}_standby
+    action_sensor_id:       ${entity_id}__output
     visual:
       temperature_step:
         current_temperature: 0.1
