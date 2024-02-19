@@ -1,0 +1,184 @@
+#----------------------------------------------------------------------#
+#      Substitutions
+#----------------------------------------------------------------------#
+substitutions:
+  log_level: info
+
+  #--- Device Configuration ---#
+  device_id: wavin
+  device_rx_pin: RX
+  device_tx_pin: TX
+
+  #--- Entity Configuration ---#
+  entity_hide_temperature_sensor: "false"
+  entity_hide_battery_sensor: "false"
+  entity_id_prefix: wavin_
+  entity_name_prefix: Wavin
+
+  #--- Channel 1 Configuration ---#
+  channel_1_id: "0x00"
+  channel_1_sensor_id: "0x00"
+  channel_1_entity_id: channel_1
+  channel_1_entity_name: Channel 1
+
+  #--- Channel 2 Configuration ---#
+  channel_2_id: "0x01"
+  channel_2_sensor_id: "0x01"
+  channel_2_entity_id: channel_2
+  channel_2_entity_name: Channel 2
+
+  #--- Channel 3 Configuration ---#
+  channel_3_id: "0x02"
+  channel_3_sensor_id: "0x02"
+  channel_3_entity_id: channel_3
+  channel_3_entity_name: Channel 3
+
+  #--- Channel 4 Configuration ---#
+  channel_4_id: "0x03"
+  channel_4_sensor_id: "0x03"
+  channel_4_entity_id: channel_4
+  channel_4_entity_name: Channel 4
+
+  #--- Channel 5 Configuration ---#
+  channel_5_id: "0x04"
+  channel_5_sensor_id: "0x04"
+  channel_5_entity_id: channel_5
+  channel_5_entity_name: Channel 5
+
+  #--- Channel 6 Configuration ---#
+  channel_6_id: "0x05"
+  channel_6_sensor_id: "0x05"
+  channel_6_entity_id: channel_6
+  channel_6_entity_name: Channel 6
+
+  #--- Channel 7 Configuration ---#
+  channel_7_id: "0x06"
+  channel_7_sensor_id: "0x06"
+  channel_7_entity_id: channel_7
+  channel_7_entity_name: Channel 7
+
+  #--- Channel 8 Configuration ---#
+  channel_8_id: "0x07"
+  channel_8_sensor_id: "0x07"
+  channel_8_entity_id: channel_8
+  channel_8_entity_name: Channel 8
+
+  #--- Channel 9 Configuration ---#
+  channel_9_id: "0x08"
+  channel_9_sensor_id: "0x08"
+  channel_9_entity_id: channel_9
+  channel_9_entity_name: Channel 9
+
+  #--- Channel 10 Configuration ---#
+  channel_10_id: "0x09"
+  channel_10_sensor_id: "0x09"
+  channel_10_entity_id: channel_10
+  channel_10_entity_name: Channel 10
+
+  #--- Channel 11 Configuration ---#
+  channel_11_id: "0x0A"
+  channel_11_sensor_id: "0x0A"
+  channel_11_entity_id: channel_11
+  channel_11_entity_name: Channel 11
+
+  #--- Channel 12 Configuration ---#
+  channel_12_id: "0x0B"
+  channel_12_sensor_id: "0x0B"
+  channel_12_entity_id: channel_12
+  channel_12_entity_name: Channel 12
+
+  #--- Channel 13 Configuration ---#
+  channel_13_id: "0x0C"
+  channel_13_sensor_id: "0x0C"
+  channel_13_entity_id: channel_13
+  channel_13_entity_name: Channel 13
+
+  #--- Channel 14 Configuration ---#
+  channel_14_id: "0x0D"
+  channel_14_sensor_id: "0x0D"
+  channel_14_entity_id: channel_14
+  channel_14_entity_name: Channel 14
+
+  #--- Channel 15 Configuration ---#
+  channel_15_id: "0x0E"
+  channel_15_sensor_id: "0x0E"
+  channel_15_entity_id: channel_15
+  channel_15_entity_name: Channel 15
+
+  #--- Channel 16 Configuration ---#
+  channel_16_id: "0x0F"
+  channel_16_sensor_id: "0x0F"
+  channel_16_entity_id: channel_16
+  channel_16_entity_name: Channel 16
+
+
+#----------------------------------------------------------------------#
+#      General Setup
+#----------------------------------------------------------------------#
+
+esphome:
+  name: ${device_id}
+
+esp8266:
+  board: esp01_1m
+
+logger:
+  baud_rate: 0
+  level: ${log_level}
+
+
+#----------------------------------------------------------------------#
+#      Homeassistant Setup
+#----------------------------------------------------------------------#
+
+api:  
+ota:
+  password: "otapassword"
+
+
+#----------------------------------------------------------------------#
+#      WiFi Setup
+#----------------------------------------------------------------------#
+captive_portal:  
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  manual_ip:
+    static_ip: xxx.xxx.xxx.xxx
+    gateway: xxx.xxx.xxx.xxx
+    subnet: xxx.xxx.xxx.xxx
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Wavin Fallback Hotspot"
+    password: "mypassword"
+
+
+#----------------------------------------------------------------------#
+#      Wavin Component Setup
+#----------------------------------------------------------------------#
+packages:
+  remote_package:
+    url: https://github.com/mathias-jakobsen/esphome_components
+    ref: main
+    refresh: 0d
+    files: 
+      - components/wavin_ahc9000/config/setup.yaml
+      - components/wavin_ahc9000/config/channel_1.yaml
+      - components/wavin_ahc9000/config/channel_2.yaml
+      - components/wavin_ahc9000/config/channel_3.yaml
+      - components/wavin_ahc9000/config/channel_4.yaml
+      - components/wavin_ahc9000/config/channel_5.yaml
+      - components/wavin_ahc9000/config/channel_6.yaml
+      - components/wavin_ahc9000/config/channel_7.yaml
+      - components/wavin_ahc9000/config/channel_8.yaml
+      - components/wavin_ahc9000/config/channel_9.yaml
+      - components/wavin_ahc9000/config/channel_10.yaml
+      - components/wavin_ahc9000/config/channel_11.yaml
+      - components/wavin_ahc9000/config/channel_12.yaml
+      - components/wavin_ahc9000/config/channel_13.yaml
+      - components/wavin_ahc9000/config/channel_14.yaml
+      - components/wavin_ahc9000/config/channel_15.yaml
+      - components/wavin_ahc9000/config/channel_16.yaml
+    
