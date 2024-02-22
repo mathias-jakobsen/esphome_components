@@ -36,6 +36,7 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 1
     device_class: battery
+    entity_category: diagnostic
     filters:
       - multiply: 10 
 
