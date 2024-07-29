@@ -34,7 +34,7 @@ sensor:
       - 0x01
     value_type: U_WORD
     unit_of_measurement: "%"
-    accuracy_decimals: 1
+    accuracy_decimals: 0
     device_class: battery
     entity_category: diagnostic
     filters:
