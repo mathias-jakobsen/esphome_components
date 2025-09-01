@@ -52,6 +52,7 @@ sensor:
     id:                     ${entity_id}_test
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               false
+    force_update:           true
     custom_command:
       - 0x01
       - 0x43
@@ -167,6 +168,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
