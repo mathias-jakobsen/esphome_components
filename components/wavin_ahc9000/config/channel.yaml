@@ -53,7 +53,7 @@ binary_sensor:
     name:                   ${entity_name} Output
     id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               true
+    internal:               false
     custom_command:
       - 0x01
       - 0x43
@@ -151,6 +151,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
