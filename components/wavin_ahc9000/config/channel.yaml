@@ -65,16 +65,12 @@ number:
     max_value: 40
     step: .5
     write_lambda: |-
+      ESP_LOGD("DEBUG", "Trying to write new target temp: %f", x);
       uint16_t targettemp = x * 10;
-      // write_lambda er uændret, da den bygger en komplet pakke
-      payload.push_back(0x01);
-      payload.push_back(0x44);
-      payload.push_back(0x02);
-      payload.push_back(0x00);
-      payload.push_back(${channel_id});
-      payload.push_back(0x01);
-      payload.push_back(targettemp >> 8);
-      payload.push_back(targettemp & 0xFF);
+      payload.push_back(0x0144);
+      payload.push_back(0x0200);
+      payload.push_back(${channel_id}01);
+      payload.push_back(targettemp);
       return true;
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
@@ -125,6 +121,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
