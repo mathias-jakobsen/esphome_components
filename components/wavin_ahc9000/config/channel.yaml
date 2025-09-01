@@ -136,7 +136,7 @@ switch:
       return true;
     lambda: |-
       int mode = data[1];
-      ESP_LOGD("main","MODE for Channel 01 is: %i",mode);    
+      ESP_LOGD("main","MODE for channel ${channel_id} is: %i",mode);    
       return mode;
 
 # ----------- Climate ----------- #
@@ -151,6 +151,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
