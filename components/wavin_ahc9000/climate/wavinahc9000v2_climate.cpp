@@ -7,13 +7,12 @@ namespace wavinahc9000v2 {
 static const char *TAG = "wavinahc9000v2.climate";
 
 void Wavinahc9000v2Climate::setup() {
+  // --- Callbacks er uændrede ---
   current_temp_sensor_->add_on_state_callback([this](float state) {
-    // ESP_LOGD(TAG, "CURRENT TEMP SENSOR CALLBACK: %f", state);
     current_temperature = state;
     publish_state();
   });
   temp_setpoint_number_->add_on_state_callback([this](float state) {
-    // ESP_LOGD(TAG, "TEMP SETPOINT SENSOR CALLBACK: %f", state);
     target_temperature = state;
     publish_state();
   });
@@ -22,7 +21,7 @@ void Wavinahc9000v2Climate::setup() {
     if (state) {
       this->mode = climate::CLIMATE_MODE_OFF;
     }
-    else if (!state) {
+    else {
       this->mode = climate::CLIMATE_MODE_HEAT;
     }
     publish_state();
@@ -32,14 +31,33 @@ void Wavinahc9000v2Climate::setup() {
     if (state) {
       this->action = climate::CLIMATE_ACTION_HEATING;
     }
-    else if (!state) {
+    else {
       this->action = climate::CLIMATE_ACTION_IDLE;
     }
     publish_state();
   });
 
+  // --- NYT: Indlæs start-status ---
   current_temperature = current_temp_sensor_->state;
   target_temperature  = temp_setpoint_number_->state;
+
+  // Sæt start-mode baseret på switchens status
+  if (mode_switch_->state) {
+    this->mode = climate::CLIMATE_MODE_OFF;
+  } else {
+    this->mode = climate::CLIMATE_MODE_HEAT;
+  }
+
+  // Sæt start-action baseret på binary_sensorens status
+  if (hvac_action_->state) {
+    this->action = climate::CLIMATE_ACTION_HEATING;
+  } else {
+    this->action = climate::CLIMATE_ACTION_IDLE;
+  }
+  
+  // Publicer start-status efter en kort forsinkelse for at sikre,
+  // at Modbus-controlleren har nået at hente de første værdier.
+  this->set_timeout("initial_publish", 1000, [this]() { this->publish_state(); });
 }
 
 void Wavinahc9000v2Climate::control(const climate::ClimateCall& call) {
