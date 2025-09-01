@@ -49,7 +49,7 @@ sensor:
 
 # ----------- Binary ----------- #
 binary_sensor:
-  - platform:               template
+  - platform:               modbus_controller
     name:                   ${entity_name} Output
     id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
@@ -151,6 +151,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
