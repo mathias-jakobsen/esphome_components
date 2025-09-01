@@ -1,6 +1,6 @@
 # ===================================================================
-# FULD OG KORRIGERET channel.yaml
-# Denne version er designet til at virke med dit specifikke setup.
+# FINAL KORRIGERET channel.yaml (Version 3)
+# Denne version løser "optimistic cannot be used with lambda" fejlen.
 # ===================================================================
 
 # ----------- Sensorer (til at læse værdier fra Wavin) ----------- #
@@ -11,7 +11,7 @@ sensor:
     id:                     ${entity_id}_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
-    custom_command: 
+    custom_command:
       - 0x01
       - 0x43
       - 0x01
@@ -32,7 +32,7 @@ sensor:
     id:                     ${entity_id}_battery
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
-    custom_command: 
+    custom_command:
       - 0x01
       - 0x43
       - 0x01
@@ -49,50 +49,53 @@ sensor:
       return raw_battery * 10.0;
 
   # ---- Nye interne sensorer til logik ----
-  # 1. Sensor til at hente den rå status-værdi for handling (heating/idle)
   - platform:               modbus_controller
     id:                     ${entity_id}_timer_event_value
     internal:               true
     custom_command:
       - 0x01
       - 0x43
-      - 0x03          # Category: Channels
-      - 0x00          # Register Index: TIMER EVENT
+      - 0x03
+      - 0x00
       - $channel_id
       - 0x01
     filters:
-      - lambda: return (int)x & 0x000F; # Isolerer de nederste 4 bits
+      - lambda: return (int)x & 0x000F;
 
-  # 2. Sensor til at hente den rå konfigurations-værdi for mode (heat/off)
   - platform:               modbus_controller
     id:                     ${entity_id}_configuration_value
     internal:               true
     custom_command:
       - 0x01
       - 0x43
-      - 0x02          # Category: Packed Data
-      - 0x07          # Register Index: CONFIGURATION
+      - 0x02
+      - 0x07
       - $channel_id
       - 0x01
     value_type: U_WORD
 
-  # 3. Sensor til at LÆSE den nuværende måltemperatur (nødvendig for number-komponent)
   - platform: modbus_controller
     id: ${entity_id}_target_temperature_reader
     internal: true
-    custom_command: 
+    custom_command:
       - 0x01
       - 0x43
-      - 0x02 # Category: Packed Data
-      - 0x00 # Register Index: MANUAL TEMPERATURE
+      - 0x02
+      - 0x00
       - $channel_id
       - 0x01
     value_type: U_WORD
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
       return raw_temp * 0.1;
+    # AUTOMATION: Opdaterer number-komponenten, når en ny værdi læses
+    on_value:
+      then:
+        - number.set:
+            id: ${entity_id}_target_temperature
+            value: !lambda 'return x;'
 
-# ----------- Binær Sensor (til at vise handling i Home Assistant) ----------- #
+# ----------- Binær Sensor (til at vise handling) ----------- #
 binary_sensor:
   - platform:               template
     name:                   "${entity_name} Heating Action"
@@ -100,7 +103,6 @@ binary_sensor:
     internal:               true
     lambda: |-
       auto event_value = id(${entity_id}_timer_event_value).state;
-      // Værdierne 0, 1 og 2 er "OFF" tilstande. Alt andet er "ON".
       if (isnan(event_value) || event_value <= 2) {
         return false; // Idle
       } else {
@@ -117,27 +119,24 @@ number:
     min_value: 6
     max_value: 40
     step: .5
-    optimistic: true
-    lambda: |-
-      return id(${entity_id}_target_temperature_reader).state;
+    optimistic: true # Nu er 'optimistic' gyldig, da 'lambda' er fjernet
     set_action:
       - uart.write:
           id: uart_${device_id}
           data: !lambda |-
             std::vector<uint8_t> cmd;
             uint16_t target_temp_int = x * 10;
-            cmd.push_back(0x01); // Slave ID
-            cmd.push_back(0x44); // Function Code: Write Register to Index
-            cmd.push_back(0x02); // Category: Packed Data
-            cmd.push_back(0x00); // Register Index: MANUAL TEMPERATURE
+            cmd.push_back(0x01);
+            cmd.push_back(0x44);
+            cmd.push_back(0x02);
+            cmd.push_back(0x00);
             cmd.push_back(${channel_id});
-            cmd.push_back(0x01); // Quantity
-            cmd.push_back(target_temp_int >> 8);   // Data High
-            cmd.push_back(target_temp_int & 0xFF); // Data Low
-            
+            cmd.push_back(0x01);
+            cmd.push_back(target_temp_int >> 8);
+            cmd.push_back(target_temp_int & 0xFF);
             uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF);        // CRC Low
-            cmd.push_back(crc >> 8);        // CRC High
+            cmd.push_back(crc & 0xFF);
+            cmd.push_back(crc >> 8);
             return cmd;
 
 # ----------- Switch (til at styre mode) ----------- #
@@ -148,50 +147,3 @@ switch:
     internal:               true
     optimistic: true
     lambda: |-
-      float state = id(${entity_id}_configuration_value).state;
-      if (isnan(state)) return {};
-      uint16_t config_reg = state;
-      uint8_t mode_bits = config_reg & 0x07;
-      bool sched_ena = (config_reg >> 3) & 0x01;
-      // ON = Standby (mode = 1, sched_ena = 0)
-      if (!sched_ena && mode_bits == 1) return true;
-      return false;
-    turn_on_action: # Sæt til Standby
-      - uart.write:
-          id: uart_${device_id}
-          data: !lambda |-
-            std::vector<uint8_t> cmd = {
-              0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x01, // Data: 0x0001
-              0xFF, 0xF0  // Mask: 0xFFF0
-            };
-            uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF);
-            cmd.push_back(crc >> 8);
-            return cmd;
-    turn_off_action: # Sæt til Ugeprogram (Heat)
-      - uart.write:
-          id: uart_${device_id}
-          data: !lambda |-
-            std::vector<uint8_t> cmd = {
-              0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x08, // Data: 0x0008
-              0xFF, 0xF0  // Mask: 0xFFF0
-            };
-            uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF);
-            cmd.push_back(crc >> 8);
-            return cmd;
-
-# ----------- Climate ----------- #
-climate:
-  - platform:               wavin_ahc9000
-    name:                   ${entity_name}
-    current_temp_sensor_id: ${entity_id}_temperature
-    target_temp_number_id:  ${entity_id}_target_temperature
-    mode_switch_sensor_id:  ${entity_id}_standby
-    action_sensor_id:       ${entity_id}_heating_action
-    visual:
-      temperature_step:
-        current_temperature: 0.1
-        target_temperature: 0.5
