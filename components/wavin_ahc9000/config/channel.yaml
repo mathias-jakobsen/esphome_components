@@ -47,9 +47,11 @@ binary_sensor:
     name:                   "${entity_name} Output"
     id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               true # Bør være intern, da den kun bruges af climate-enheden
+    internal:               false # Bør være intern, da den kun bruges af climate-enheden
     custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
-    bitmask: 0x0010
+    lambda: |-
+      uint16_t status_reg = (data[2] << 8) | data[3];
+      return (bool)(status_reg & 0x0010);
 
 # ----------- Number ----------- #
 number:
@@ -121,6 +123,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
