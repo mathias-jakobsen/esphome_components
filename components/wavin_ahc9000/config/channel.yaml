@@ -77,8 +77,8 @@ number:
       payload.push_back(targettemp & 0xFF);
       return true;
     lambda: |-
-      // NYT: Læser fra data[0] og data[1]
-      uint16_t raw_temp = (data[0] << 8) | data[1];
+      uint16_t raw_temp = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Target temp raw value: %d", raw_temp);
       return raw_temp * 0.1;
 
 # ----------- Switch ----------- #
@@ -125,5 +125,6 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
