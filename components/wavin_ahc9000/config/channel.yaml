@@ -1,11 +1,14 @@
 # ===================================================================
-# FINAL KORRIGERET channel.yaml (Version 4)
-# Denne version løser "Lambda doesn't contain a 'return' statement" fejlen.
+# FINAL KORRIGERET channel.yaml (Version 5)
+# Denne version retter:
+# 1. Batteri-aflæsning.
+# 2. Pålidelighed af hvac_action (varme-status).
+# 3. Pålidelighed af mode (tænd/sluk-status).
 # ===================================================================
 
 # ----------- Sensorer (til at læse værdier fra Wavin) ----------- #
 sensor:
-  # ---- Eksisterende sensorer, der virker ----
+  # ---- Eksisterende sensorer, med rettelser ----
   - platform:               modbus_controller
     name:                   "${entity_name} Temperature"
     id:                     ${entity_id}_temperature
@@ -25,6 +28,10 @@ sensor:
     force_update: True
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
+      // Værdien 0x7FFF betyder "ikke kendt"
+      if (raw_temp == 0x7FFF) {
+        return NAN; // Rapporter "unknown" i Home Assistant
+      }
       return raw_temp * 0.1;
 
   - platform:               modbus_controller
@@ -45,8 +52,10 @@ sensor:
     device_class: battery
     entity_category: diagnostic
     lambda: |-
-      uint16_t raw_battery = (data[2] << 8) | data[3];
-      return raw_battery * 10.0;
+      // RETTELSE: Læser kun de nederste 4 bits (BATT[3:0]) som specificeret i manualen.
+      uint16_t raw_value = (data[2] << 8) | data[3];
+      uint8_t battery_level = raw_value & 0x000F;
+      return battery_level * 10.0;
 
   # ---- Nye interne sensorer til logik ----
   - platform:               modbus_controller
@@ -55,12 +64,16 @@ sensor:
     custom_command:
       - 0x01
       - 0x43
-      - 0x03          # Category: Channels
-      - 0x00          # Register Index: TIMER EVENT
+      - 0x03
+      - 0x00
       - $channel_id
       - 0x01
+    on_value:
+      - logger.log:
+          format: "[${entity_name}] Timer Event RAW: %f"
+          args: [ 'x' ]
     filters:
-      - lambda: return (int)x & 0x000F; # Isolerer de nederste 4 bits
+      - lambda: return (int)x & 0x000F;
 
   - platform:               modbus_controller
     id:                     ${entity_id}_configuration_value
@@ -68,8 +81,8 @@ sensor:
     custom_command:
       - 0x01
       - 0x43
-      - 0x02          # Category: Packed Data
-      - 0x07          # Register Index: CONFIGURATION
+      - 0x02
+      - 0x07
       - $channel_id
       - 0x01
     value_type: U_WORD
@@ -148,37 +161,36 @@ switch:
     lambda: |-
       float state = id(${entity_id}_configuration_value).state;
       if (isnan(state)) {
-        return false; // RETTELSE: Returner 'false' som standard, hvis sensor ikke er klar
+        return false; 
       }
       uint16_t config_reg = state;
       uint8_t mode_bits = config_reg & 0x07;
       bool sched_ena = (config_reg >> 3) & 0x01;
-      // ON = Standby (mode = 1, sched_ena = 0)
       if (!sched_ena && mode_bits == 1) {
         return true;
       }
       return false;
-    turn_on_action: # Sæt til Standby
+    turn_on_action: 
       - uart.write:
           id: uart_${device_id}
           data: !lambda |-
             std::vector<uint8_t> cmd = {
               0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x01, // Data: 0x0001
-              0xFF, 0xF0  // Mask: 0xFFF0
+              0x00, 0x01,
+              0xFF, 0xF0 
             };
             uint16_t crc = crc16(&cmd[0], cmd.size());
             cmd.push_back(crc & 0xFF);
             cmd.push_back(crc >> 8);
             return cmd;
-    turn_off_action: # Sæt til Ugeprogram (Heat)
+    turn_off_action:
       - uart.write:
           id: uart_${device_id}
           data: !lambda |-
             std::vector<uint8_t> cmd = {
               0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x08, // Data: 0x0008
-              0xFF, 0xF0  // Mask: 0xFFF0
+              0x00, 0x08, 
+              0xFF, 0xF0 
             };
             uint16_t crc = crc16(&cmd[0], cmd.size());
             cmd.push_back(crc & 0xFF);
