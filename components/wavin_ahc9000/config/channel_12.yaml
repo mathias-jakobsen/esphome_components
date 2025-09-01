@@ -1,7 +1,9 @@
 <<: !include
   file: channel.yaml
   vars:
-    channel_id: ${channel_2_id}
-    channel_sensor_id: ${channel_2_sensor_id}
-    entity_id: ${channel_2_entity_id}
-    entity_name: ${channel_2_entity_name}
+    channel_id: ${channel_12_id}
+    channel_sensor_id: ${channel_12_sensor_id}
+    entity_id: ${channel_12_entity_id}
+
+    entity_name: ${channel_12_entity_name}
+    device_id: ${channel_12_device_id}
