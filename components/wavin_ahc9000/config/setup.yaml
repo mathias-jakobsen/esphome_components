@@ -113,23 +113,23 @@ substitutions:
 #----------------------------------------------------------------------#
 #      Modbus Setup
 #----------------------------------------------------------------------#
-modbus:
-  - id: ${device_id}_modbus
-    uart_id: uart_${device_id}
+#modbus:
+#  - id: ${device_id}_modbus
+#    uart_id: uart_${device_id}
 
-modbus_controller:
-  id: ${device_id}_modbus_controller
-  address: 1
-  modbus_id: wavin_modbus
-  update_interval: 5s
+#modbus_controller:
+#  id: ${device_id}_modbus_controller
+#  address: 1
+#  modbus_id: wavin_modbus
+#  update_interval: 5s
 
-uart:
-  - id: uart_${device_id}
-    rx_pin: ${device_rx_pin}
-    tx_pin: ${device_tx_pin}
-    baud_rate: 38400
-    stop_bits: 1
-    parity: NONE
+#uart:
+#  - id: uart_${device_id}
+#    rx_pin: ${device_rx_pin}
+#    tx_pin: ${device_tx_pin}
+#    baud_rate: 38400
+#    stop_bits: 1
+#    parity: NONE
 
 
 #----------------------------------------------------------------------#
@@ -144,12 +144,12 @@ external_components:
     components: [wavin_ahc9000]
   # ESPHome 2022.6 has updates for modbus/modbus_controller which makes writing a number back to the wavin device fail.
   # This ensures it uses the components from 2022.5.1 instead. A work around until I figure out how to make 2022.6 work.
-  - source:
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 2022.5.1
-    components: [modbus, modbus_controller]
-    refresh: 0s
+#  - source:
+#      type: git
+#      url: https://github.com/esphome/esphome
+#      ref: 2022.5.1
+#    components: [modbus, modbus_controller]
+#    refresh: 0s
 
 
 #----------------------------------------------------------------------#
