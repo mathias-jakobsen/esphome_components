@@ -17,8 +17,13 @@ sensor:
     accuracy_decimals: 1
     device_class: temperature
     force_update: True
-    filters:
-      - multiply: 0.1
+    lambda: |-
+      for (int i = 0; i < data.size(); i++) {
+        ESP_LOGD("DEBUG", "data[%d] = 0x%02X", i, data[i]);
+      }
+      uint16_t raw_temp = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Correct raw_temp assembled: %d", raw_temp);
+      return raw_temp * 0.1;
   # Battery
   - platform:               modbus_controller
     name:                   ${entity_name} Battery
@@ -37,8 +42,10 @@ sensor:
     accuracy_decimals: 0
     device_class: battery
     entity_category: diagnostic
-    filters:
-      - multiply: 10 
+    lambda: |-
+      uint16_t raw_battery = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
+      return raw_battery * 10.0;
 
 # ----------- Binary ----------- #
 binary_sensor:
@@ -141,3 +148,4 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
