@@ -4,4 +4,6 @@
     channel_id: ${channel_13_id}
     channel_sensor_id: ${channel_13_sensor_id}
     entity_id: ${channel_13_entity_id}
+
     entity_name: ${channel_13_entity_name}
+    device_id: ${channel_13_device_id}
