@@ -18,9 +18,11 @@ sensor:
     device_class: temperature
     force_update: True
     lambda: |-
-      // RETTELSE: Bytter om på data[0] og data[1]
-      uint16_t raw_temp = (data[1] << 8) | data[0];
-      if (raw_temp == 0x7FFF) return NAN;
+      for (int i = 0; i < data.size(); i++) {
+        ESP_LOGD("DEBUG", "data[%d] = 0x%02X", i, data[i]);
+      }
+      uint16_t raw_temp = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Correct raw_temp assembled: %d", raw_temp);
       return raw_temp * 0.1;
 
   - platform:               modbus_controller
@@ -35,11 +37,9 @@ sensor:
     device_class: battery
     entity_category: diagnostic
     lambda: |-
-      // RETTELSE: Bytter om på bytes og bruger korrekt logik
-      uint16_t raw_value = (data[1] << 8) | data[0];
-      uint8_t battery_level_raw = raw_value & 0x000F;
-      if (battery_level_raw > 10) return id(${entity_id}_battery).state;
-      return battery_level_raw * 10.0;
+      uint16_t raw_battery = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
+      return raw_battery * 10.0;
 
 # ----------- Binary ----------- #
 binary_sensor:
@@ -125,4 +125,5 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
