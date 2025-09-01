@@ -47,37 +47,21 @@ sensor:
       ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
       return raw_battery * 10.0;
 
-  - platform:               modbus_controller
-    name:                   ${entity_name} test
-    id:                     ${entity_id}_test
+# ----------- Binary ----------- #
+binary_sensor:
+  - platform:               template
+    name:                   ${entity_name} Output
+    id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               false
     custom_command:
       - 0x01
       - 0x43
-      - 0x03          # Category: Channels
-      - 0x00          # Register Index: TIMER EVENT
-      - $channel_id   # Register Page
+      - 0x03
+      - 0x00
+      - $channel_01
       - 0x01
-    filters:
-      # Isolerer de nederste 4 bits (TEVENT[3:0])
-      - lambda: return (int)x & 0x000F;
-
-
-# ----------- Binary ----------- #
-binary_sensor:
-  - platform:               template
-    name:                   "${entity_name} Heating Action"
-    id:                     ${entity_id}_output
-    internal:               false
-    lambda: |-
-      auto event_value = id(${entity_id}_test).state;
-      // Værdierne 0, 1 og 2 er "OFF" tilstande. Alt andet er "ON".
-      if (event_value == 0 || event_value == 1 || event_value == 2) {
-        return false; // Idle
-      } else {
-        return true;  // Heating
-      }
+    bitmask: 0x0010
 
 # ----------- Number ----------- #
 number:
@@ -126,39 +110,34 @@ switch:
       - $channel_id
       - 0x01
     write_lambda: |-
-      // Payload skal KUN indeholde data-bytes, ikke slave ID og funktionskode.
-      // Format for 0x45: [Category, Index, Page, Quantity, Data_H, Data_L, Mask_H, Mask_L]
-      std::vector<uint8_t> payload;
-      payload.push_back(0x02); // Category: Packed Data
-      payload.push_back(0x07); // Index: CONFIGURATION
-      payload.push_back(${channel_id});
-      payload.push_back(0x01); // Quantity
-
-      if (x) {
-        // Sæt til Standby (SCHED_ENA=0, MODE=1 => værdi 0x01)
-        payload.push_back(0x00); // Data High
-        payload.push_back(0x01); // Data Low
-      } else {
-        // Sæt til Week Schedule (SCHED_ENA=1, MODE=0 => værdi 0x08)
-        payload.push_back(0x00); // Data High
-        payload.push_back(0x08); // Data Low
+      ESP_LOGD("main","Modbus Switch incoming state for channel 01 = %s",ONOFF(x));
+      bool state = ONOFF(x);
+      uint8_t MODE_MASK = 0x07;
+      payload.push_back(0x01);
+      payload.push_back(0x45);
+      payload.push_back(0x02);
+      payload.push_back(0x07); 
+      payload.push_back(${channel_01});       
+      payload.push_back(0x01); 
+      if(x)
+      {
+        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
+        payload.push_back( 0x01 >> 8);
+        payload.push_back( 0x01 & 0xFF);
       }
-
-      // Maske til kun at ændre de nederste 4 bits (mode + sched)
-      // Mask = 0xFFF0
-      payload.push_back(0xFF); // Mask High
-      payload.push_back(0xF0); // Mask Low
-      
-      return modbus_controller::write_custom_command(payload, 0x45);
+      else
+      {
+        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
+        payload.push_back( 0x00 >> 8);
+        payload.push_back( 0x00 & 0xFF);
+      }
+      payload.push_back((~MODE_MASK) >> 8);
+      payload.push_back((~MODE_MASK) & 0xFF);
+      return true;
     lambda: |-
-      uint16_t config_reg = (data[2] << 8) | data[3];
-      uint8_t mode_bits = config_reg & 0x07;
-      bool sched_ena = (config_reg >> 3) & 0x01;
-      // Switchen er ON (Standby) hvis mode er "PERMANENT STANDBY"
-      if (!sched_ena && mode_bits == 1) {
-        return true;
-      }
-      return false;
+      int mode = data[1];
+      ESP_LOGD("main","MODE for Channel 01 is: %i",mode);    
+      return mode;
 
 # ----------- Climate ----------- #
 climate:
@@ -172,6 +151,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
