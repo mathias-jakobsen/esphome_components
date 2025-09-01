@@ -87,7 +87,7 @@ number:
       uint16_t targettemp = x * 10;
       payload.push_back(0x0144);
       payload.push_back(0x0200);
-      payload.push_back(${channel_01}01);
+      payload.push_back(${channel_sensor_id}01);
       payload.push_back(targettemp);
       return true;
     lambda: |-
@@ -117,7 +117,7 @@ switch:
       payload.push_back(0x45);
       payload.push_back(0x02);
       payload.push_back(0x07); 
-      payload.push_back(${channel_01});       
+      payload.push_back(${channel_sensor_id});       
       payload.push_back(0x01); 
       if(x)
       {
@@ -151,5 +151,6 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
