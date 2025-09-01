@@ -1,7 +1,13 @@
-# ----------- Sensor ----------- #
+# ===================================================================
+# KORRIGERET channel.yaml
+# Kopiér og erstat hele indholdet af din eksisterende channel.yaml-fil med dette.
+# ===================================================================
+
+# ----------- Sensorer ----------- #
 sensor:
+  # ---- Eksisterende sensorer (uændret) ----
   - platform:               modbus_controller
-    name:                   ${entity_name} Temperature
+    name:                   "${entity_name} Temperature"
     id:                     ${entity_id}_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
@@ -18,15 +24,10 @@ sensor:
     device_class: temperature
     force_update: True
     lambda: |-
-      for (int i = 0; i < data.size(); i++) {
-        ESP_LOGD("DEBUG", "data[%d] = 0x%02X", i, data[i]);
-      }
       uint16_t raw_temp = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Correct raw_temp assembled: %d", raw_temp);
       return raw_temp * 0.1;
-  # Battery
   - platform:               modbus_controller
-    name:                   ${entity_name} Battery
+    name:                   "${entity_name} Battery"
     id:                     ${entity_id}_battery
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
@@ -44,37 +45,69 @@ sensor:
     entity_category: diagnostic
     lambda: |-
       uint16_t raw_battery = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
       return raw_battery * 10.0;
 
-# ----------- Binary ----------- #
-binary_sensor:
+  # ---- NYE sensorer til intern logik ----
+  # 1. Sensor til at hente den rå status-værdi (handling)
   - platform:               modbus_controller
-    name:                   ${entity_name} Output
-    id:                     ${entity_id}_output
+    name:                   "${entity_name} Timer Event Value"
+    id:                     ${entity_id}_timer_event_value
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               false
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
-      - 0x03
-      - 0x00
+      - 0x03          # Category: Channels
+      - 0x00          # Register Index: TIMER EVENT
       - $channel_id
       - 0x01
-    bitmask: 0x0010
+    filters:
+      # Isolerer de nederste 4 bits (TEVENT[3:0])
+      - lambda: return (int)x & 0x000F;
 
-# ----------- Number ----------- #
+  # 2. Sensor til at hente den rå konfigurations-værdi (mode)
+  - platform:               modbus_controller
+    name:                   "${entity_name} Configuration Value"
+    id:                     ${entity_id}_configuration_value
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command:
+      - 0x01
+      - 0x43
+      - 0x02          # Category: Packed Data
+      - 0x07          # Register Index: CONFIGURATION
+      - $channel_id
+      - 0x01
+    value_type: U_WORD
+
+# ----------- Binære Sensorer (til at vise handling) ----------- #
+binary_sensor:
+  # NY template sensor, der oversætter status-værdien til en sand/falsk værdi (Heating/Idle)
+  - platform:               template
+    name:                   "${entity_name} Heating Action"
+    id:                     ${entity_id}_heating_action # Nyt ID
+    internal:               false
+    lambda: |-
+      auto event_value = id(${entity_id}_timer_event_value).state;
+      // Værdierne 0 (NO EVENT), 1 (IDLE) og 2 (CUT OFF) er "OFF" tilstande.
+      if (isnan(event_value) || event_value <= 2) {
+        return false; // Idle
+      } else {
+        return true;  // Heating
+      }
+
+# ----------- Number (til at styre måltemperatur) ----------- #
 number:
   - platform:               modbus_controller
-    name:                   ${entity_name} Target Temperature
+    name:                   "${entity_name} Target Temperature"
     id:                     ${entity_id}_target_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command: 
       - 0x01
       - 0x43
-      - 0x02
-      - 0x00
+      - 0x02 # Category: Packed Data
+      - 0x00 # Register Index: MANUAL TEMPERATURE
       - $channel_id
       - 0x01
     value_type: U_WORD
@@ -82,62 +115,75 @@ number:
     min_value: 6
     max_value: 40
     step: .5
+    # KORREKT SKRIVE-LOGIK
     write_lambda: |-
-      ESP_LOGD("DEBUG", "Trying to write new target temp: %f", x);
-      uint16_t targettemp = x * 10;
-      payload.push_back(0x0144);
-      payload.push_back(0x0200);
-      payload.push_back(${channel_id}01);
-      payload.push_back(targettemp);
-      return true;
+      uint16_t target_temp_int = x * 10;
+      // Payload for en custom write (0x44) skal kun indeholde data-delen:
+      // [Category, Index, Page, Quantity, Data_H, Data_L]
+      std::vector<uint8_t> payload;
+      payload.push_back(0x02); // Category
+      payload.push_back(0x00); // Index
+      payload.push_back(${channel_id});
+      payload.push_back(0x01); // Quantity
+      payload.push_back(target_temp_int >> 8);   // Data High
+      payload.push_back(target_temp_int & 0xFF); // Data Low
+      return modbus_controller::write_custom_command(payload, 0x44);
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
-      ESP_LOGD("DEBUG", "Target temp raw value: %d", raw_temp);
       return raw_temp * 0.1;
 
-# ----------- Switch ----------- #
+# ----------- Switch (til at styre mode) ----------- #
 switch:
-  - platform:               modbus_controller
-    name:                   ${entity_name} Standby
+  # NY template switch til at styre Standby/Heat mode korrekt
+  - platform:               template
+    name:                   "${entity_name} Standby"
     id:                     ${entity_id}_standby
-    modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x02
-      - 0x07
-      - $channel_id
-      - 0x01
-    write_lambda: |-
-      ESP_LOGD("main","Modbus Switch incoming state for channel ${channel_id} = %s",ONOFF(x));
-      bool state = ONOFF(x);
-      uint8_t MODE_MASK = 0x07;
-      payload.push_back(0x01);
-      payload.push_back(0x45);
-      payload.push_back(0x02);
-      payload.push_back(0x07); 
-      payload.push_back(${channel_id});       
-      payload.push_back(0x01); 
-      if(x)
-      {
-        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
-        payload.push_back( 0x01 >> 8);
-        payload.push_back( 0x01 & 0xFF);
-      }
-      else
-      {
-        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
-        payload.push_back( 0x00 >> 8);
-        payload.push_back( 0x00 & 0xFF);
-      }
-      payload.push_back((~MODE_MASK) >> 8);
-      payload.push_back((~MODE_MASK) & 0xFF);
-      return true;
+    
+    # KORREKT LÆSE-LOGIK
     lambda: |-
-      int mode = data[1];
-      ESP_LOGD("main","MODE for channel ${channel_id} is: %i",mode);    
-      return mode;
+      float state = id(${entity_id}_configuration_value).state;
+      if (isnan(state)) return {}; // Return unknown if sensor is not ready
+      uint16_t config_reg = state;
+      uint8_t mode_bits = config_reg & 0x07;
+      bool sched_ena = (config_reg >> 3) & 0x01;
+      // Switchen er ON (dvs. i Standby/OFF) hvis mode er "PERMANENT STANDBY"
+      if (!sched_ena && mode_bits == 1) {
+        return true;
+      }
+      return false;
+
+    # KORREKT SKRIVE-LOGIK (TÆND for at slukke termostat)
+    turn_on_action:
+      - modbus_controller.write_custom_command:
+          controller_id: ${device_id}_modbus_controller
+          address: 0x01
+          function_code: 0x45 # Write Masked
+          data:
+            - 0x02 # Category
+            - 0x07 # Index
+            - $channel_id
+            - 0x01 # Quantity
+            - 0x00 # Data High (sæt til 0x01 for Standby)
+            - 0x01 # Data Low
+            - 0xFF # Mask High (maske 0xFFF0 - ændrer kun bit 0-3)
+            - 0xF0 # Mask Low
+
+    # KORREKT SKRIVE-LOGIK (SLUK for at tænde termostat)
+    turn_off_action:
+      - modbus_controller.write_custom_command:
+          controller_id: ${device_id}_modbus_controller
+          address: 0x01
+          function_code: 0x45 # Write Masked
+          data:
+            - 0x02 # Category
+            - 0x07 # Index
+            - $channel_id
+            - 0x01 # Quantity
+            - 0x00 # Data High (sæt til 0x08 for Week Schedule)
+            - 0x08 # Data Low
+            - 0xFF # Mask High (maske 0xFFF0)
+            - 0xF0 # Mask Low
 
 # ----------- Climate ----------- #
 climate:
@@ -146,22 +192,9 @@ climate:
     current_temp_sensor_id: ${entity_id}_temperature
     target_temp_number_id:  ${entity_id}_target_temperature
     mode_switch_sensor_id:  ${entity_id}_standby
-    action_sensor_id:       ${entity_id}_output
+    # Opdateret til at bruge den nye, korrekte template sensor
+    action_sensor_id:       ${entity_id}_heating_action
     visual:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
-
-
-
-
-
-
-
-
-
-
-
-
-
-
