@@ -47,13 +47,29 @@ sensor:
       ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
       return raw_battery * 10.0;
 
+  - platform:               modbus_controller
+    name:                   ${entity_name} test
+    id:                     ${entity_id}_test
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               false
+    custom_command:
+      - 0x01
+      - 0x43
+      - 0x03          # Category: Channels
+      - 0x00          # Register Index: TIMER EVENT
+      - $channel_id   # Register Page: Channel 1 (husk 0-indeksering)
+      - 0x01
+    filters:
+      # Isolerer de nederste 4 bits (TEVENT[3:0]) ved hjælp af en bitmask
+      - lambda: return (int)x & 0x000F;
+
 # ----------- Binary ----------- #
 binary_sensor:
   - platform:               modbus_controller
     name:                   ${entity_name} Output
     id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               false
+    internal:               true
     custom_command:
       - 0x01
       - 0x43
@@ -151,6 +167,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
