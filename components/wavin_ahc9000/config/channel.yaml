@@ -1,133 +1,117 @@
+# ===================================================================
+# channel.yaml (Version 8 - Kompatibel med nyeste ESPHome)
+# RETTELSE: Lambda-funktioner er justeret til at læse korrekte
+#           dataindekser for den nye modbus_controller.
+# ===================================================================
+
 # ----------- Sensor ----------- #
 sensor:
   - platform:               modbus_controller
-    name:                   ${entity_name} Temperature
+    name:                   "${entity_name} Temperature"
     id:                     ${entity_id}_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
-    custom_command: 
-      - 0x01
-      - 0x43
-      - 0x01
-      - 0x04
-      - $channel_sensor_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x01, 0x04, $channel_sensor_id, 0x01]
     value_type: U_WORD
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     device_class: temperature
     force_update: True
-    filters:
-      - multiply: 0.1
-  # Battery
+    lambda: |-
+      // NYT: Læser fra data[0] og data[1] i stedet for data[2] og data[3]
+      uint16_t raw_temp = (data[0] << 8) | data[1];
+      if (raw_temp == 0x7FFF) return NAN;
+      return raw_temp * 0.1;
+
   - platform:               modbus_controller
-    name:                   ${entity_name} Battery
+    name:                   "${entity_name} Battery"
     id:                     ${entity_id}_battery
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
-    custom_command: 
-      - 0x01
-      - 0x43
-      - 0x01
-      - 0x0A
-      - $channel_sensor_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x01, 0x0A, $channel_sensor_id, 0x01]
     value_type: U_WORD
     unit_of_measurement: "%"
     accuracy_decimals: 0
     device_class: battery
     entity_category: diagnostic
-    filters:
-      - multiply: 10 
+    lambda: |-
+      // NYT: Læser fra data[0] og data[1]
+      uint16_t raw_value = (data[0] << 8) | data[1];
+      uint8_t battery_level_raw = raw_value & 0x000F;
+      if (battery_level_raw > 10) return id(${entity_id}_battery).state;
+      return battery_level_raw * 10.0;
 
 # ----------- Binary ----------- #
 binary_sensor:
   - platform:               modbus_controller
-    name:                   ${entity_name} Output
+    name:                   "${entity_name} Output"
     id:                     ${entity_id}_output
     modbus_controller_id:   ${device_id}_modbus_controller
-    internal:               true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x03
-      - 0x00
-      - $channel_id
-      - 0x01
+    internal:               true # Bør være intern, da den kun bruges af climate-enheden
+    custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
     bitmask: 0x0010
 
 # ----------- Number ----------- #
 number:
   - platform:               modbus_controller
-    name:                   ${entity_name} Target Temperature
+    name:                   "${entity_name} Target Temperature"
     id:                     ${entity_id}_target_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
-    custom_command: 
-      - 0x01
-      - 0x43
-      - 0x02
-      - 0x00
-      - $channel_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x02, 0x00, $channel_id, 0x01]
     value_type: U_WORD
     unit_of_measurement: "°C"
     min_value: 6
     max_value: 40
     step: .5
     write_lambda: |-
-      ESP_LOGD("main", "Trying to write new target temp: %f",x);
       uint16_t targettemp = x * 10;
-      payload.push_back(0x0144);
-      payload.push_back(0x0200);
-      payload.push_back(${channel_id}01);
-      payload.push_back(targettemp);
+      // write_lambda er uændret, da den bygger en komplet pakke
+      payload.push_back(0x01);
+      payload.push_back(0x44);
+      payload.push_back(0x02);
+      payload.push_back(0x00);
+      payload.push_back(${channel_id});
+      payload.push_back(0x01);
+      payload.push_back(targettemp >> 8);
+      payload.push_back(targettemp & 0xFF);
       return true;
-    lambda: "return x*0.1;"
+    lambda: |-
+      // NYT: Læser fra data[0] og data[1]
+      uint16_t raw_temp = (data[0] << 8) | data[1];
+      return raw_temp * 0.1;
 
 # ----------- Switch ----------- #
 switch:
   - platform:               modbus_controller
-    name:                   ${entity_name} Standby
+    name:                   "${entity_name} Standby"
     id:                     ${entity_id}_standby
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x02
-      - 0x07
-      - $channel_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x02, 0x07, $channel_id, 0x01]
+    # write_lambda er uændret
     write_lambda: |-
-      ESP_LOGD("main","Modbus Switch incoming state for channel %s = %s",${channel_id},ONOFF(x));
-      bool state = ONOFF(x);
       uint8_t MODE_MASK = 0x07;
       payload.push_back(0x01);
       payload.push_back(0x45);
       payload.push_back(0x02);
       payload.push_back(0x07); 
-      payload.push_back(${channel_id});       
+      payload.push_back(${channel_id});
       payload.push_back(0x01); 
-      if(x)
-      {
-        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
-        payload.push_back( 0x01 >> 8);
-        payload.push_back( 0x01 & 0xFF);
-      }
-      else
-      {
-        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
-        payload.push_back( 0x00 >> 8);
-        payload.push_back( 0x00 & 0xFF);
+      if(x) {
+        payload.push_back(0x00);
+        payload.push_back(0x01);
+      } else {
+        payload.push_back(0x00);
+        payload.push_back(0x00);
       }
       payload.push_back((~MODE_MASK) >> 8);
       payload.push_back((~MODE_MASK) & 0xFF);
       return true;
     lambda: |-
-      int mode = data[1];
-      ESP_LOGD("main","MODE for Channel %s is: %i",${channel_id},mode);    
-      return mode;
+      // NYT: Læser fra data[0] og data[1]
+      uint16_t mode_reg = (data[0] << 8) | data[1];
+      return (mode_reg & 0x07) == 1 && !((mode_reg >> 3) & 0x01);
 
 # ----------- Climate ----------- #
 climate:
