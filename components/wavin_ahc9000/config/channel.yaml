@@ -1,153 +1,142 @@
-# ===================================================================
-# channel.yaml (Version 7)
-# RETTELSE: 'range' filter fjernet og erstattet med logik i lambda
-# for at sikre kompatibilitet og stabilisere batteri-aflæsning.
-# ===================================================================
-
-# ----------- Sensorer (til at læse værdier fra Wavin) ----------- #
+# ----------- Sensor ----------- #
 sensor:
-  # ---- Eksisterende sensorer, med rettelser ----
   - platform:               modbus_controller
-    name:                   "${entity_name} Temperature"
+    name:                   ${entity_name} Temperature
     id:                     ${entity_id}_temperature
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
-    custom_command: [0x01, 0x43, 0x01, 0x04, $channel_sensor_id, 0x01]
+    custom_command: 
+      - 0x01
+      - 0x43
+      - 0x01
+      - 0x04
+      - $channel_sensor_id
+      - 0x01
     value_type: U_WORD
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     device_class: temperature
     force_update: True
-    lambda: |-
-      uint16_t raw_temp = (data[2] << 8) | data[3];
-      if (raw_temp == 0x7FFF) return NAN;
-      return raw_temp * 0.1;
-
+    filters:
+      - multiply: 0.1
+  # Battery
   - platform:               modbus_controller
-    name:                   "${entity_name} Battery"
+    name:                   ${entity_name} Battery
     id:                     ${entity_id}_battery
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
-    custom_command: [0x01, 0x43, 0x01, 0x0A, $channel_sensor_id, 0x01]
+    custom_command: 
+      - 0x01
+      - 0x43
+      - 0x01
+      - 0x0A
+      - $channel_sensor_id
+      - 0x01
     value_type: U_WORD
     unit_of_measurement: "%"
     accuracy_decimals: 0
     device_class: battery
     entity_category: diagnostic
-    lambda: |-
-      uint16_t raw_value = (data[2] << 8) | data[3];
-      uint8_t battery_level_raw = raw_value & 0x000F; // Værdi skal være 0-10
-      // Hvis værdien er ugyldig (>10), ignorer den ved at returnere sensorens egen sidste kendte værdi.
-      if (battery_level_raw > 10) {
-        return id(${entity_id}_battery).state;
-      }
-      return battery_level_raw * 10.0;
     filters:
-      - sliding_window_moving_average:
-          window_size: 5
-          send_every: 1
+      - multiply: 10 
 
-  # ---- Interne sensorer til logik ----
-  - platform: modbus_controller
-    id: ${entity_id}_timer_event_value
-    internal: true
-    custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
-    filters:
-      - lambda: return (int)x & 0x000F;
-
-  - platform: modbus_controller
-    id: ${entity_id}_configuration_value
-    internal: true
-    custom_command: [0x01, 0x43, 0x02, 0x07, $channel_id, 0x01]
-    value_type: U_WORD
-
-  - platform: modbus_controller
-    id: ${entity_id}_target_temperature_reader
-    internal: true
-    custom_command: [0x01, 0x43, 0x02, 0x00, $channel_id, 0x01]
-    value_type: U_WORD
-    lambda: |-
-      uint16_t raw_temp = (data[2] << 8) | data[3];
-      return raw_temp * 0.1;
-    on_value:
-      then:
-        - number.set:
-            id: ${entity_id}_target_temperature
-            value: !lambda 'return x;'
-
-# ----------- Binær Sensor (til at vise handling) ----------- #
+# ----------- Binary ----------- #
 binary_sensor:
-  - platform: template
-    name: "${entity_name} Heating Action"
-    id: ${entity_id}_heating_action
-    internal: true
-    lambda: |-
-      auto event_value = id(${entity_id}_timer_event_value).state;
-      if (isnan(event_value) || event_value <= 2) return false;
-      return true;
+  - platform:               modbus_controller
+    name:                   ${entity_name} Output
+    id:                     ${entity_id}_output
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command:
+      - 0x01
+      - 0x43
+      - 0x03
+      - 0x00
+      - $channel_id
+      - 0x01
+    bitmask: 0x0010
 
-# ----------- Number (til at styre måltemperatur) ----------- #
+# ----------- Number ----------- #
 number:
-  - platform: template
-    name: "${entity_name} Target Temperature"
-    id: ${entity_id}_target_temperature
-    internal: true
+  - platform:               modbus_controller
+    name:                   ${entity_name} Target Temperature
+    id:                     ${entity_id}_target_temperature
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command: 
+      - 0x01
+      - 0x43
+      - 0x02
+      - 0x00
+      - $channel_id
+      - 0x01
+    value_type: U_WORD
     unit_of_measurement: "°C"
     min_value: 6
     max_value: 40
     step: .5
-    optimistic: true
-    set_action:
-      - uart.write:
-          id: uart_${device_id}
-          data: !lambda |-
-            std::vector<uint8_t> cmd;
-            uint16_t temp = x * 10;
-            cmd = {0x01, 0x44, 0x02, 0x00, (uint8_t)(${channel_id}), 0x01, (uint8_t)(temp >> 8), (uint8_t)(temp & 0xFF)};
-            uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF); cmd.push_back(crc >> 8);
-            return cmd;
+    write_lambda: |-
+      ESP_LOGD("main", "Trying to write new target temp: %f",x);
+      uint16_t targettemp = x * 10;
+      payload.push_back(0x0144);
+      payload.push_back(0x0200);
+      payload.push_back(${channel_id}01);
+      payload.push_back(targettemp);
+      return true;
+    lambda: "return x*0.1;"
 
-# ----------- Switch (til at styre mode) ----------- #
+# ----------- Switch ----------- #
 switch:
-  - platform: template
-    name: "${entity_name} Standby"
-    id: ${entity_id}_standby
-    internal: true
-    optimistic: true
+  - platform:               modbus_controller
+    name:                   ${entity_name} Standby
+    id:                     ${entity_id}_standby
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command:
+      - 0x01
+      - 0x43
+      - 0x02
+      - 0x07
+      - $channel_id
+      - 0x01
+    write_lambda: |-
+      ESP_LOGD("main","Modbus Switch incoming state for channel %s = %s",${channel_id},ONOFF(x));
+      bool state = ONOFF(x);
+      uint8_t MODE_MASK = 0x07;
+      payload.push_back(0x01);
+      payload.push_back(0x45);
+      payload.push_back(0x02);
+      payload.push_back(0x07); 
+      payload.push_back(${channel_id});       
+      payload.push_back(0x01); 
+      if(x)
+      {
+        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
+        payload.push_back( 0x01 >> 8);
+        payload.push_back( 0x01 & 0xFF);
+      }
+      else
+      {
+        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
+        payload.push_back( 0x00 >> 8);
+        payload.push_back( 0x00 & 0xFF);
+      }
+      payload.push_back((~MODE_MASK) >> 8);
+      payload.push_back((~MODE_MASK) & 0xFF);
+      return true;
     lambda: |-
-      float state = id(${entity_id}_configuration_value).state;
-      if (isnan(state)) return false;
-      uint16_t config = state;
-      bool sched_ena = (config >> 3) & 0x01;
-      uint8_t mode = config & 0x07;
-      if (!sched_ena && mode == 1) return true;
-      return false;
-    turn_on_action: # Set to Standby
-      - uart.write:
-          id: uart_${device_id}
-          data: !lambda |-
-            std::vector<uint8_t> cmd = {0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01, 0x00, 0x01, 0xFF, 0xF0};
-            uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF); cmd.push_back(crc >> 8);
-            return cmd;
-    turn_off_action: # Set to Week Schedule
-      - uart.write:
-          id: uart_${device_id}
-          data: !lambda |-
-            std::vector<uint8_t> cmd = {0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01, 0x00, 0x08, 0xFF, 0xF0};
-            uint16_t crc = crc16(&cmd[0], cmd.size());
-            cmd.push_back(crc & 0xFF); cmd.push_back(crc >> 8);
-            return cmd;
+      int mode = data[1];
+      ESP_LOGD("main","MODE for Channel %s is: %i",${channel_id},mode);    
+      return mode;
 
 # ----------- Climate ----------- #
 climate:
-  - platform: wavin_ahc9000
-    name: ${entity_name}
+  - platform:               wavin_ahc9000
+    name:                   ${entity_name}
     current_temp_sensor_id: ${entity_id}_temperature
     target_temp_number_id:  ${entity_id}_target_temperature
     mode_switch_sensor_id:  ${entity_id}_standby
-    action_sensor_id:       ${entity_id}_heating_action
+    action_sensor_id:       ${entity_id}_output
     visual:
       temperature_step:
         current_temperature: 0.1
