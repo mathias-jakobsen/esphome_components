@@ -1,14 +1,10 @@
 # ===================================================================
-# FINAL KORRIGERET channel.yaml (Version 5)
-# Denne version retter:
-# 1. Batteri-aflæsning.
-# 2. Pålidelighed af hvac_action (varme-status).
-# 3. Pålidelighed af mode (tænd/sluk-status).
+# channel.yaml (Version 6)
+# RETTELSE: Stabiliseret batteri-sensor med filter.
 # ===================================================================
 
 # ----------- Sensorer (til at læse værdier fra Wavin) ----------- #
 sensor:
-  # ---- Eksisterende sensorer, med rettelser ----
   - platform:               modbus_controller
     name:                   "${entity_name} Temperature"
     id:                     ${entity_id}_temperature
@@ -28,9 +24,8 @@ sensor:
     force_update: True
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
-      // Værdien 0x7FFF betyder "ikke kendt"
       if (raw_temp == 0x7FFF) {
-        return NAN; // Rapporter "unknown" i Home Assistant
+        return NAN;
       }
       return raw_temp * 0.1;
 
@@ -52,51 +47,39 @@ sensor:
     device_class: battery
     entity_category: diagnostic
     lambda: |-
-      // RETTELSE: Læser kun de nederste 4 bits (BATT[3:0]) som specificeret i manualen.
       uint16_t raw_value = (data[2] << 8) | data[3];
       uint8_t battery_level = raw_value & 0x000F;
       return battery_level * 10.0;
+    # NYT FILTER: Stabiliserer aflæsningen
+    filters:
+      # 1. Tillad kun gyldige værdier (0-100%)
+      - filter_out: NAN
+      - range:
+          min: 0
+          max: 100
+      # 2. Udjævn værdien over de seneste 5 aflæsninger
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
 
-  # ---- Nye interne sensorer til logik ----
+  # ---- Interne sensorer til logik ----
   - platform:               modbus_controller
     id:                     ${entity_id}_timer_event_value
     internal:               true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x03
-      - 0x00
-      - $channel_id
-      - 0x01
-    on_value:
-      - logger.log:
-          format: "[${entity_name}] Timer Event RAW: %f"
-          args: [ 'x' ]
+    custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
     filters:
       - lambda: return (int)x & 0x000F;
 
   - platform:               modbus_controller
     id:                     ${entity_id}_configuration_value
     internal:               true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x02
-      - 0x07
-      - $channel_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x02, 0x07, $channel_id, 0x01]
     value_type: U_WORD
 
   - platform: modbus_controller
     id: ${entity_id}_target_temperature_reader
     internal: true
-    custom_command:
-      - 0x01
-      - 0x43
-      - 0x02
-      - 0x00
-      - $channel_id
-      - 0x01
+    custom_command: [0x01, 0x43, 0x02, 0x00, $channel_id, 0x01]
     value_type: U_WORD
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
@@ -137,15 +120,8 @@ number:
           id: uart_${device_id}
           data: !lambda |-
             std::vector<uint8_t> cmd;
-            uint16_t target_temp_int = x * 10;
-            cmd.push_back(0x01);
-            cmd.push_back(0x44);
-            cmd.push_back(0x02);
-            cmd.push_back(0x00);
-            cmd.push_back(${channel_id});
-            cmd.push_back(0x01);
-            cmd.push_back(target_temp_int >> 8);
-            cmd.push_back(target_temp_int & 0xFF);
+            uint16_t temp = x * 10;
+            cmd = {0x01, 0x44, 0x02, 0x00, (uint8_t)(${channel_id}), 0x01, (uint8_t)(temp >> 8), (uint8_t)(temp & 0xFF)};
             uint16_t crc = crc16(&cmd[0], cmd.size());
             cmd.push_back(crc & 0xFF);
             cmd.push_back(crc >> 8);
@@ -160,38 +136,26 @@ switch:
     optimistic: true
     lambda: |-
       float state = id(${entity_id}_configuration_value).state;
-      if (isnan(state)) {
-        return false; 
-      }
-      uint16_t config_reg = state;
-      uint8_t mode_bits = config_reg & 0x07;
-      bool sched_ena = (config_reg >> 3) & 0x01;
-      if (!sched_ena && mode_bits == 1) {
-        return true;
-      }
+      if (isnan(state)) return false;
+      uint16_t config = state;
+      bool sched_ena = (config >> 3) & 0x01;
+      uint8_t mode = config & 0x07;
+      if (!sched_ena && mode == 1) return true; // ON = Standby
       return false;
-    turn_on_action: 
+    turn_on_action: # Set to Standby
       - uart.write:
           id: uart_${device_id}
           data: !lambda |-
-            std::vector<uint8_t> cmd = {
-              0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x01,
-              0xFF, 0xF0 
-            };
+            std::vector<uint8_t> cmd = {0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01, 0x00, 0x01, 0xFF, 0xF0};
             uint16_t crc = crc16(&cmd[0], cmd.size());
             cmd.push_back(crc & 0xFF);
             cmd.push_back(crc >> 8);
             return cmd;
-    turn_off_action:
+    turn_off_action: # Set to Week Schedule
       - uart.write:
           id: uart_${device_id}
           data: !lambda |-
-            std::vector<uint8_t> cmd = {
-              0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01,
-              0x00, 0x08, 
-              0xFF, 0xF0 
-            };
+            std::vector<uint8_t> cmd = {0x01, 0x45, 0x02, 0x07, (uint8_t)(${channel_id}), 0x01, 0x00, 0x08, 0xFF, 0xF0};
             uint16_t crc = crc16(&cmd[0], cmd.size());
             cmd.push_back(crc & 0xFF);
             cmd.push_back(crc >> 8);
