@@ -1,129 +1,129 @@
 #----------------------------------------------------------------------#
 #      Substitutions
 #----------------------------------------------------------------------#
-substitutions:
+#substitutions:
   #--- Device Configuration ---#
-  device_id: wavin
-  device_rx_pin: RX
-  device_tx_pin: TX
+#  device_id: wavin
+#  device_rx_pin: RX
+#  device_tx_pin: TX
 
   #--- Entity Configuration ---#
-  entity_hide_temperature_sensor: "false"
-  entity_hide_battery_sensor: "false"
-  entity_id_prefix: wavin_
-  entity_name_prefix: Wavin
+#  entity_hide_temperature_sensor: "false"
+#  entity_hide_battery_sensor: "false"
+#  entity_id_prefix: wavin_
+#  entity_name_prefix: Wavin
 
   #--- Channel 1 Configuration ---#
-  channel_1_id: "0x00"
-  channel_1_sensor_id: "0x00"
-  channel_1_entity_id: channel_1
-  channel_1_entity_name: Channel 1
-  channel_1_device_id: channel_1_device
+#  channel_1_id: "0x00"
+#  channel_1_sensor_id: "0x00"
+#  channel_1_entity_id: channel_1
+#  channel_1_entity_name: Channel 1
+#  channel_1_device_id: channel_1_device
 
   #--- Channel 2 Configuration ---#
-  channel_2_id: "0x01"
-  channel_2_sensor_id: "0x01"
-  channel_2_entity_id: channel_2
-  channel_2_entity_name: Channel 2
-  channel_2_device_id: channel_2_device
+#  channel_2_id: "0x01"
+#  channel_2_sensor_id: "0x01"
+#  channel_2_entity_id: channel_2
+#  channel_2_entity_name: Channel 2
+#  channel_2_device_id: channel_2_device
 
   #--- Channel 3 Configuration ---#
-  channel_3_id: "0x02"
-  channel_3_sensor_id: "0x02"
-  channel_3_entity_id: channel_3
-  channel_3_entity_name: Channel 3
-  channel_3_device_id: channel_3_device
+#  channel_3_id: "0x02"
+#  channel_3_sensor_id: "0x02"
+#  channel_3_entity_id: channel_3
+#  channel_3_entity_name: Channel 3
+#  channel_3_device_id: channel_3_device
 
   #--- Channel 4 Configuration ---#
-  channel_4_id: "0x03"
-  channel_4_sensor_id: "0x03"
-  channel_4_entity_id: channel_4
-  channel_4_entity_name: Channel 4
-  channel_4_device_id: channel_4_device
+#  channel_4_id: "0x03"
+#  channel_4_sensor_id: "0x03"
+#  channel_4_entity_id: channel_4
+#  channel_4_entity_name: Channel 4
+#  channel_4_device_id: channel_4_device
 
   #--- Channel 5 Configuration ---#
-  channel_5_id: "0x04"
-  channel_5_sensor_id: "0x04"
-  channel_5_entity_id: channel_5
-  channel_5_entity_name: Channel 5
-  channel_5_device_id: channel_5_device
+#  channel_5_id: "0x04"
+#  channel_5_sensor_id: "0x04"
+#  channel_5_entity_id: channel_5
+#  channel_5_entity_name: Channel 5
+#  channel_5_device_id: channel_5_device
 
   #--- Channel 6 Configuration ---#
-  channel_6_id: "0x05"
-  channel_6_sensor_id: "0x05"
-  channel_6_entity_id: channel_6
-  channel_6_entity_name: Channel 6
-  channel_6_device_id: channel_6_device
+#  channel_6_id: "0x05"
+#  channel_6_sensor_id: "0x05"
+#  channel_6_entity_id: channel_6
+#  channel_6_entity_name: Channel 6
+#  channel_6_device_id: channel_6_device
 
   #--- Channel 7 Configuration ---#
-  channel_7_id: "0x06"
-  channel_7_sensor_id: "0x06"
-  channel_7_entity_id: channel_7
-  channel_7_entity_name: Channel 7
-  channel_7_device_id: channel_7_device
+#  channel_7_id: "0x06"
+#  channel_7_sensor_id: "0x06"
+#  channel_7_entity_id: channel_7
+#  channel_7_entity_name: Channel 7
+#  channel_7_device_id: channel_7_device
 
   #--- Channel 8 Configuration ---#
-  channel_8_id: "0x07"
-  channel_8_sensor_id: "0x07"
-  channel_8_entity_id: channel_8
-  channel_8_entity_name: Channel 8
-  channel_8_device_id: channel_8_device
+#  channel_8_id: "0x07"
+#  channel_8_sensor_id: "0x07"
+#  channel_8_entity_id: channel_8
+#  channel_8_entity_name: Channel 8
+#  channel_8_device_id: channel_8_device
 
   #--- Channel 9 Configuration ---#
-  channel_9_id: "0x08"
-  channel_9_sensor_id: "0x08"
-  channel_9_entity_id: channel_9
-  channel_9_entity_name: Channel 9
-  channel_9_device_id: channel_9_device
+#  channel_9_id: "0x08"
+#  channel_9_sensor_id: "0x08"
+#  channel_9_entity_id: channel_9
+#  channel_9_entity_name: Channel 9
+#  channel_9_device_id: channel_9_device
 
   #--- Channel 10 Configuration ---#
-  channel_10_id: "0x09"
-  channel_10_sensor_id: "0x09"
-  channel_10_entity_id: channel_10
-  channel_10_entity_name: Channel 10
-  channel_10_device_id: channel_10_device
+#  channel_10_id: "0x09"
+#  channel_10_sensor_id: "0x09"
+#  channel_10_entity_id: channel_10
+#  channel_10_entity_name: Channel 10
+#  channel_10_device_id: channel_10_device
 
   #--- Channel 11 Configuration ---#
-  channel_11_id: "0x0A"
-  channel_11_sensor_id: "0x0A"
-  channel_11_entity_id: channel_11
-  channel_11_entity_name: Channel 11
-  channel_11_device_id: channel_11_device
+#  channel_11_id: "0x0A"
+#  channel_11_sensor_id: "0x0A"
+#  channel_11_entity_id: channel_11
+#  channel_11_entity_name: Channel 11
+#  channel_11_device_id: channel_11_device
 
   #--- Channel 12 Configuration ---#
-  channel_12_id: "0x0B"
-  channel_12_sensor_id: "0x0B"
-  channel_12_entity_id: channel_12
-  channel_12_entity_name: Channel 12
-  channel_12_device_id: channel_12_device
+#  channel_12_id: "0x0B"
+#  channel_12_sensor_id: "0x0B"
+#  channel_12_entity_id: channel_12
+#  channel_12_entity_name: Channel 12
+#  channel_12_device_id: channel_12_device
 
   #--- Channel 13 Configuration ---#
-  channel_13_id: "0x0C"
-  channel_13_sensor_id: "0x0C"
-  channel_13_entity_id: channel_13
-  channel_13_entity_name: Channel 13
-  channel_13_device_id: channel_13_device
+#  channel_13_id: "0x0C"
+#  channel_13_sensor_id: "0x0C"
+#  channel_13_entity_id: channel_13
+#  channel_13_entity_name: Channel 13
+#  channel_13_device_id: channel_13_device
 
   #--- Channel 14 Configuration ---#
-  channel_14_id: "0x0D"
-  channel_14_sensor_id: "0x0D"
-  channel_14_entity_id: channel_14
-  channel_14_entity_name: Channel 14
-  channel_14_device_id: channel_14_device
+#  channel_14_id: "0x0D"
+#  channel_14_sensor_id: "0x0D"
+#  channel_14_entity_id: channel_14
+#  channel_14_entity_name: Channel 14
+#  channel_14_device_id: channel_14_device
 
   #--- Channel 15 Configuration ---#
-  channel_15_id: "0x0E"
-  channel_15_sensor_id: "0x0E"
-  channel_15_entity_id: channel_15
-  channel_15_entity_name: Channel 15
-  channel_15_device_id: channel_15_device
+#  channel_15_id: "0x0E"
+#  channel_15_sensor_id: "0x0E"
+#  channel_15_entity_id: channel_15
+#  channel_15_entity_name: Channel 15
+#  channel_15_device_id: channel_15_device
 
   #--- Channel 16 Configuration ---#
-  channel_16_id: "0x0F"
-  channel_16_sensor_id: "0x0F"
-  channel_16_entity_id: channel_16
-  channel_16_entity_name: Channel 16
-  channel_16_device_id: channel_16_device
+#  channel_16_id: "0x0F"
+#  channel_16_sensor_id: "0x0F"
+#  channel_16_entity_id: channel_16
+#  channel_16_entity_name: Channel 16
+#  channel_16_device_id: channel_16_device
 
 
 #----------------------------------------------------------------------#
