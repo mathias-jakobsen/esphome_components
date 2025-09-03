@@ -4,7 +4,7 @@
     channel_id: ${channel_7_id}
     channel_sensor_id: ${channel_7_sensor_id}
     entity_id: ${channel_7_entity_id}
-
     entity_name: ${channel_7_entity_name}
     entity_device_id: ${channel_7_device_id}
+
 
