@@ -9,7 +9,7 @@ sensor:
   - platform:               modbus_controller
     name:                   "${entity_name} Temperature"
     id:                     ${entity_id}_temperature
-    device_id:              ${entity_device_id}
+    #device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
     custom_command: [0x01, 0x43, 0x01, 0x04, ${channel_sensor_id}, 0x01]
@@ -29,7 +29,7 @@ sensor:
   - platform:               modbus_controller
     name:                   "${entity_name} Battery"
     id:                     ${entity_id}_battery
-    device_id:              ${entity_device_id}
+    #device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
     custom_command: [0x01, 0x43, 0x01, 0x0A, ${channel_sensor_id}, 0x01]
@@ -48,7 +48,7 @@ binary_sensor:
   - platform:               modbus_controller
     name:                   "${entity_name} Output"
     id:                     ${entity_id}_output
-    device_id:              ${entity_device_id}
+    #device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true # Bør være intern, da den kun bruges af climate-enheden
     custom_command: [0x01, 0x43, 0x03, 0x00, ${channel_id}, 0x01]
@@ -61,7 +61,7 @@ number:
   - platform:               modbus_controller
     name:                   "${entity_name} Target Temperature"
     id:                     ${entity_id}_target_temperature
-    device_id:              ${entity_device_id}
+    #device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command: [0x01, 0x43, 0x02, 0x00, ${channel_id}, 0x01]
@@ -88,7 +88,7 @@ switch:
   - platform:               modbus_controller
     name:                   "${entity_name} Standby"
     id:                     ${entity_id}_standby
-    device_id:              ${entity_device_id}
+    #device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
     custom_command: [0x01, 0x43, 0x02, 0x07, ${channel_id}, 0x01]
@@ -136,6 +136,7 @@ climate:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
