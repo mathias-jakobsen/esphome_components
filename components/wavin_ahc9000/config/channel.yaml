@@ -12,7 +12,7 @@ sensor:
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
-    custom_command: [0x01, 0x43, 0x01, 0x04, $channel_sensor_id, 0x01]
+    custom_command: [0x01, 0x43, 0x01, 0x04, ${channel_sensor_id}, 0x01]
     value_type: U_WORD
     unit_of_measurement: "°C"
     accuracy_decimals: 1
@@ -32,7 +32,7 @@ sensor:
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
-    custom_command: [0x01, 0x43, 0x01, 0x0A, $channel_sensor_id, 0x01]
+    custom_command: [0x01, 0x43, 0x01, 0x0A, ${channel_sensor_id}, 0x01]
     value_type: U_WORD
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -51,7 +51,7 @@ binary_sensor:
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true # Bør være intern, da den kun bruges af climate-enheden
-    custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
+    custom_command: [0x01, 0x43, 0x03, 0x00, ${channel_id}, 0x01]
     lambda: |-
       uint16_t status_reg = (data[2] << 8) | data[3];
       return (bool)(status_reg & 0x0010);
@@ -64,22 +64,19 @@ number:
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
-    custom_command: [0x01, 0x43, 0x02, 0x00, $channel_id, 0x01]
+    custom_command: [0x01, 0x43, 0x02, 0x00, ${channel_id}, 0x01]
     value_type: U_WORD
     unit_of_measurement: "°C"
     min_value: 6
     max_value: 40
     step: .5
     write_lambda: |-
+      ESP_LOGD("DEBUG", "Trying to write new target temp: %f", x);
       uint16_t targettemp = x * 10;
-      payload.push_back(0x01);
-      payload.push_back(0x44);
-      payload.push_back(0x02);
-      payload.push_back(0x00);
-      payload.push_back(${channel_id});
-      payload.push_back(0x01);
-      payload.push_back(targettemp >> 8);
-      payload.push_back(targettemp & 0xFF);
+      payload.push_back(0x0144);
+      payload.push_back(0x0200);
+      payload.push_back(${channel_id}01);
+      payload.push_back(targettemp);
       return true;
     lambda: |-
       uint16_t raw_temp = (data[2] << 8) | data[3];
@@ -94,7 +91,7 @@ switch:
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
-    custom_command: [0x01, 0x43, 0x02, 0x07, $channel_id, 0x01]
+    custom_command: [0x01, 0x43, 0x02, 0x07, ${channel_id}, 0x01]
     # write_lambda er uændret
     write_lambda: |-
       ESP_LOGD("main","Modbus Switch incoming state for channel ${channel_id} = %s",ONOFF(x));
