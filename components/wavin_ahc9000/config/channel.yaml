@@ -8,7 +8,7 @@
 sensor:
   - platform:               modbus_controller
     name:                   "${entity_name} Temperature"
-    id:                     ${entity_id}_temperature
+    id:                     temperature
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_temperature_sensor}
@@ -28,7 +28,7 @@ sensor:
 
   - platform:               modbus_controller
     name:                   "${entity_name} Battery"
-    id:                     ${entity_id}_battery
+    id:                     battery
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               ${entity_hide_battery_sensor}
@@ -47,7 +47,7 @@ sensor:
 binary_sensor:
   - platform:               modbus_controller
     name:                   "${entity_name} Output"
-    id:                     ${entity_id}_output
+    id:                     output
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true # Bør være intern, da den kun bruges af climate-enheden
@@ -60,7 +60,7 @@ binary_sensor:
 number:
   - platform:               modbus_controller
     name:                   "${entity_name} Target Temperature"
-    id:                     ${entity_id}_target_temperature
+    id:                     target_temperature
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
@@ -87,7 +87,7 @@ number:
 switch:
   - platform:               modbus_controller
     name:                   "${entity_name} Standby"
-    id:                     ${entity_id}_standby
+    id:                     standby
     device_id:              ${entity_device_id}
     modbus_controller_id:   ${device_id}_modbus_controller
     internal:               true
@@ -128,14 +128,15 @@ climate:
   - platform:               wavin_ahc9000
     name:                   ${entity_name}
     device_id:              ${entity_device_id}
-    current_temp_sensor_id: ${entity_id}_temperature
-    target_temp_number_id:  ${entity_id}_target_temperature
-    mode_switch_sensor_id:  ${entity_id}_standby
-    action_sensor_id:       ${entity_id}_output
+    current_temp_sensor_id: temperature
+    target_temp_number_id:  target_temperature
+    mode_switch_sensor_id:  standby
+    action_sensor_id:       output
     visual:
       temperature_step:
         current_temperature: 0.1
         target_temperature: 0.5
+
 
 
 
