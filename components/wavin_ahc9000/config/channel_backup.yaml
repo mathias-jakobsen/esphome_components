@@ -1,0 +1,152 @@
+# ===================================================================
+# channel.yaml (Version 8 - Kompatibel med nyeste ESPHome)
+# RETTELSE: Lambda-funktioner er justeret til at læse korrekte
+#           dataindekser for den nye modbus_controller.
+# ===================================================================
+
+# ----------- Sensor ----------- #
+sensor:
+  - platform:               modbus_controller
+    name:                   "${entity_name} Temperature"
+    id:                     ${entity_id}_temperature
+    device_id:              ${entity_device_id}
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               ${entity_hide_temperature_sensor}
+    custom_command: [0x01, 0x43, 0x01, 0x04, $channel_sensor_id, 0x01]
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    device_class: temperature
+    force_update: True
+    lambda: |-
+      for (int i = 0; i < data.size(); i++) {
+        ESP_LOGD("DEBUG", "data[%d] = 0x%02X", i, data[i]);
+      }
+      uint16_t raw_temp = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Correct raw_temp assembled: %d", raw_temp);
+      return raw_temp * 0.1;
+
+  - platform:               modbus_controller
+    name:                   "${entity_name} Battery"
+    id:                     ${entity_id}_battery
+    device_id:              ${entity_device_id}
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               ${entity_hide_battery_sensor}
+    custom_command: [0x01, 0x43, 0x01, 0x0A, $channel_sensor_id, 0x01]
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    entity_category: diagnostic
+    lambda: |-
+      uint16_t raw_battery = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Battery raw value: %d", raw_battery);
+      return raw_battery * 10.0;
+
+# ----------- Binary ----------- #
+binary_sensor:
+  - platform:               modbus_controller
+    name:                   "${entity_name} Output"
+    id:                     ${entity_id}_output
+    device_id:              ${entity_device_id}
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true # Bør være intern, da den kun bruges af climate-enheden
+    custom_command: [0x01, 0x43, 0x03, 0x00, $channel_id, 0x01]
+    lambda: |-
+      uint16_t status_reg = (data[2] << 8) | data[3];
+      return (bool)(status_reg & 0x0010);
+
+# ----------- Number ----------- #
+number:
+  - platform:               modbus_controller
+    name:                   "${entity_name} Target Temperature"
+    id:                     ${entity_id}_target_temperature
+    device_id:              ${entity_device_id}
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command: [0x01, 0x43, 0x02, 0x00, $channel_id, 0x01]
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    min_value: 6
+    max_value: 40
+    step: .5
+    write_lambda: |-
+      ESP_LOGD("DEBUG", "Trying to write new target temp: %f", x);
+      uint16_t targettemp = x * 10;
+      payload.push_back(0x0144);
+      payload.push_back(0x0200);
+      payload.push_back(${channel_id}01);
+      payload.push_back(targettemp);
+      return true;
+    lambda: |-
+      uint16_t raw_temp = (data[2] << 8) | data[3];
+      ESP_LOGD("DEBUG", "Target temp raw value: %d", raw_temp);
+      return raw_temp * 0.1;
+
+# ----------- Switch ----------- #
+switch:
+  - platform:               modbus_controller
+    name:                   "${entity_name} Standby"
+    id:                     ${entity_id}_standby
+    device_id:              ${entity_device_id}
+    modbus_controller_id:   ${device_id}_modbus_controller
+    internal:               true
+    custom_command: [0x01, 0x43, 0x02, 0x07, $channel_id, 0x01]
+    # write_lambda er uændret
+    write_lambda: |-
+      ESP_LOGD("main","Modbus Switch incoming state for channel ${channel_id} = %s",ONOFF(x));
+      bool state = ONOFF(x);
+      uint8_t MODE_MASK = 0x07;
+      payload.push_back(0x01);
+      payload.push_back(0x45);
+      payload.push_back(0x02);
+      payload.push_back(0x07); 
+      payload.push_back(${channel_id});       
+      payload.push_back(0x01); 
+      if(x)
+      {
+        ESP_LOGD("main","Pushing back 0x01 because state is %s",ONOFF(x));
+        payload.push_back( 0x01 >> 8);
+        payload.push_back( 0x01 & 0xFF);
+      }
+      else
+      {
+        ESP_LOGD("main","Pushing back 0x00 because state is %s",ONOFF(x));
+        payload.push_back( 0x00 >> 8);
+        payload.push_back( 0x00 & 0xFF);
+      }
+      payload.push_back((~MODE_MASK) >> 8);
+      payload.push_back((~MODE_MASK) & 0xFF);
+      return true;
+    lambda: |-
+      // Rettet til at læse fra data[2] og data[3]
+      uint16_t mode_reg = (data[2] << 8) | data[3];
+      return (mode_reg & 0x07) == 1 && !((mode_reg >> 3) & 0x01);
+
+# ----------- Climate ----------- #
+climate:
+  - platform:               wavin_ahc9000
+    name:                   ${entity_name}
+    device_id:              ${entity_device_id}
+    current_temp_sensor_id: ${entity_id}_temperature
+    target_temp_number_id:  ${entity_id}_target_temperature
+    mode_switch_sensor_id:  ${entity_id}_standby
+    action_sensor_id:       ${entity_id}_output
+    visual:
+      temperature_step:
+        current_temperature: 0.1
+        target_temperature: 0.5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
