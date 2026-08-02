@@ -366,7 +366,6 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     this->current_temperature = NAN;
     this->mode = climate::CLIMATE_MODE_HEAT;
     this->action = climate::CLIMATE_ACTION_IDLE;
-    this->publish_state();
   }
 
   climate::ClimateTraits traits() override {
