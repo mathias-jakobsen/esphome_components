@@ -11,13 +11,23 @@ CONF_CHANNEL = "channel"
 WavinZoneBatterySensor = wavin_ns.class_("WavinZoneBatterySensor", sensor.Sensor, cg.Component)
 WavinZoneRSSISensor = wavin_ns.class_("WavinZoneRSSISensor", sensor.Sensor, cg.Component)
 
-CONFIG_SCHEMA = sensor.sensor_schema().extend(
+CONFIG_SCHEMA = cv.typed_schema(
     {
-        cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
-        cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
-        cv.Required(CONF_TYPE): cv.one_of("battery", "rssi", lower=True),
-    }
-).extend(cv.COMPONENT_SCHEMA)
+        "battery": sensor.sensor_schema(WavinZoneBatterySensor).extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
+            }
+        ),
+        "rssi": sensor.sensor_schema(WavinZoneRSSISensor).extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
+            }
+        ),
+    },
+    lower=True,
+)
 
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_WAVIN_ID])
