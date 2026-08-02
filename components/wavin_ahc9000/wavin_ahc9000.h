@@ -11,6 +11,7 @@
 #include <vector>
 #include <deque>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <cmath>
 #include <array>
@@ -20,101 +21,59 @@ namespace wavin_ahc9000 {
 
 static const char *const TAG = "wavin_ahc9000";
 
-// Wavin Modbus Non-Standard Function Codes
-static const uint8_t WAVIN_FC_READ_REGISTER           = 0x43;
-static const uint8_t WAVIN_FC_WRITE_REGISTER          = 0x44;
-static const uint8_t WAVIN_FC_WRITE_MASKED_INDEX     = 0x45;
-static const uint8_t WAVIN_FC_WRITE_MASKED_ADDRESS   = 0x46;
+// Wavin Modbus Protocol Constants
+static constexpr uint8_t DEVICE_ADDR = 0x01;
+static constexpr uint8_t FC_READ     = 0x43;
+static constexpr uint8_t FC_WRITE    = 0x44;
+static constexpr uint8_t FC_WRITE_MASKED = 0x45;
 
-// Wavin Modbus Register Categories
-static const uint8_t CAT_MAIN                         = 0x00;
-static const uint8_t CAT_ELEMENTS                     = 0x01;
-static const uint8_t CAT_PACKED                       = 0x02;
-static const uint8_t CAT_CHANNELS                     = 0x03;
-static const uint8_t CAT_RELAYS                       = 0x04;
-static const uint8_t CAT_CLOCK                        = 0x05;
-static const uint8_t CAT_SCHEDULES                    = 0x06;
-static const uint8_t CAT_INFO                         = 0x07;
+static constexpr uint8_t CAT_ELEMENTS = 0x01;
+static constexpr uint8_t CAT_PACKED   = 0x02;
+static constexpr uint8_t CAT_CHANNELS = 0x03;
 
-// Category 0x01 (ELEMENTS) Register Indexes
-static const uint8_t ELEM_REG_ADDRESS_L               = 0x00;
-static const uint8_t ELEM_REG_ADDRESS_H               = 0x01;
-static const uint8_t ELEM_REG_AIR_TEMP                = 0x04;
-static const uint8_t ELEM_REG_FLOOR_TEMP              = 0x05;
-static const uint8_t ELEM_REG_HUMIDITY                = 0x07;
-static const uint8_t ELEM_REG_STATUS                  = 0x08;
-static const uint8_t ELEM_REG_RSSI                    = 0x09;
-static const uint8_t ELEM_REG_BATTERY                 = 0x0A;
-static const uint8_t ELEM_REG_SYNC_GROUP              = 0x0B;
+static constexpr uint8_t CH_TIMER_EVENT = 0x00;
+static constexpr uint16_t CH_TIMER_EVENT_OUTP_ON_MASK = 0x0010;
+static constexpr uint8_t CH_PRIMARY_ELEMENT = 0x02;
+static constexpr uint16_t CH_PRIMARY_ELEMENT_ELEMENT_MASK = 0x003F;
+static constexpr uint16_t CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK = 0x0400;
 
-// Category 0x02 (PACKED DATA) Register Indexes
-static const uint8_t PACKED_REG_MANUAL_TEMP           = 0x00;
-static const uint8_t PACKED_REG_COMFORT_TEMP          = 0x01;
-static const uint8_t PACKED_REG_ECO_TEMP              = 0x02;
-static const uint8_t PACKED_REG_CONFIGURATION         = 0x07;
-static const uint8_t PACKED_REG_DESIRED_TEMP          = 0x10;
+static constexpr uint8_t ELEM_AIR_TEMPERATURE = 0x04;
+static constexpr uint8_t ELEM_FLOOR_TEMPERATURE = 0x05;
+static constexpr uint8_t ELEM_STATUS = 0x08;
+static constexpr uint8_t ELEM_RSSI = 0x09;
+static constexpr uint8_t ELEM_BATTERY_STATUS = 0x0A;
 
-// Category 0x03 (CHANNELS) Register Indexes
-static const uint8_t CH_REG_TIMER_EVENT               = 0x00;
-static const uint8_t CH_REG_PRIMARY_ELEMENT           = 0x02;
+static constexpr uint8_t PACKED_MANUAL_TEMPERATURE = 0x00;
+static constexpr uint8_t PACKED_CONFIGURATION = 0x07;
+static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x0007;
+static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY = 0x0001;
 
-// Bitmasks
-static const uint16_t ELEM_STATUS_ALIVE_MASK          = 0x8000; // Bit 15
-static const uint16_t ELEM_STATUS_LOST_MASK           = 0x0800; // Bit 11
-static const uint16_t ELEM_STATUS_LOW_BATT_MASK       = 0x0400; // Bit 10
-static const uint16_t CH_TIMER_EVENT_OUTP_ON          = 0x0010; // Bit 4
-static const uint16_t CH_PRIMARY_ELEM_ALL_LOST        = 0x0800; // Bit 11
-
-// Compute Standard Modbus CRC16 (0xA001 polynomial)
-inline uint16_t crc16(const uint8_t *data, size_t len) {
-  uint16_t crc = 0xFFFF;
+// Modbus CRC16
+inline uint16_t crc16(const uint8_t *frame, size_t len) {
+  uint16_t temp = 0xFFFF;
   for (size_t i = 0; i < len; i++) {
-    crc ^= data[i];
+    temp ^= frame[i];
     for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x0001) {
-        crc = (crc >> 1) ^ 0xA001;
-      } else {
-        crc >>= 1;
-      }
+      bool flag = temp & 0x0001;
+      temp >>= 1;
+      if (flag) temp ^= 0xA001;
     }
   }
-  return crc;
+  return temp;
 }
 
-// Channel state structure maintained by central data broker
 struct ChannelState {
-  uint32_t address{0};
+  uint8_t primary_index{0};
   bool paired{false};
-  float air_temp{NAN};
-  float floor_temp{NAN};
-  float target_temp{20.0f};
+  bool all_tp_lost{false};
+  float current_temp_c{NAN};
+  float floor_temp_c{NAN};
+  float setpoint_c{20.0f};
   uint8_t battery_pct{100};
   bool low_battery{false};
-  bool lost{false};
   float rssi{-60.0f};
-  bool heating_active{false};
-  uint8_t sync_group{0};
-  uint8_t primary_element{0};
   climate::ClimateMode mode{climate::CLIMATE_MODE_HEAT};
   climate::ClimateAction action{climate::CLIMATE_ACTION_IDLE};
-};
-
-enum RequestType {
-  REQ_READ_ELEMENT,
-  REQ_READ_CHANNEL,
-  REQ_READ_PACKED,
-  REQ_WRITE_SETPOINT,
-  REQ_WRITE_MODE
-};
-
-struct ModbusPacket {
-  RequestType type;
-  uint8_t channel; // 1..16
-  uint8_t category;
-  uint8_t index;
-  uint8_t page;
-  uint8_t quantity;
-  std::vector<uint8_t> payload;
 };
 
 class WavinUpdatableEntity {
@@ -123,9 +82,6 @@ class WavinUpdatableEntity {
   virtual void update_state() = 0;
 };
 
-// Forward declaration
-class WavinAHC9000Component;
-
 class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
  public:
   WavinAHC9000Component(uart::UARTComponent *parent) : uart::UARTDevice(parent) {
@@ -133,8 +89,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   }
 
   void set_flow_control_pin(GPIOPin *pin) { this->flow_control_pin_ = pin; }
-  void set_receive_timeout_ms(uint32_t timeout) { this->timeout_ms_ = timeout; }
-
+  void set_receive_timeout_ms(uint32_t timeout) { this->receive_timeout_ms_ = timeout; }
   void set_channel_paired_sensor(uint8_t channel, binary_sensor::BinarySensor *sensor) {
     if (channel >= 1 && channel <= 16) {
       this->channel_paired_sensors_[channel - 1] = sensor;
@@ -152,310 +107,201 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   }
 
   void setup() override {
-    ESP_LOGCONFIG(TAG, "Initializing Wavin AHC9000 Modbus RTU Component...");
+    ESP_LOGCONFIG(TAG, "Setting up Wavin AHC9000 Modbus RTU Component...");
     if (this->flow_control_pin_ != nullptr) {
       this->flow_control_pin_->setup();
       this->flow_control_pin_->digital_write(false);
     }
   }
 
+  void loop() override {}
+
   void update() override {
-    // Queue polling requests for all 16 channels in background
+    std::vector<uint16_t> regs;
+
     for (uint8_t ch = 1; ch <= 16; ch++) {
-      uint8_t page = ch - 1;
+      uint8_t ch_page = ch - 1;
+      auto &st = this->channels_[ch - 1];
 
-      // 1. Always poll Category 0x01 (ELEMENTS) for all 16 channels to detect paired status
-      ModbusPacket p1;
-      p1.type = REQ_READ_ELEMENT;
-      p1.channel = ch;
-      p1.category = CAT_ELEMENTS;
-      p1.index = ELEM_REG_ADDRESS_L;
-      p1.page = page;
-      p1.quantity = 12;
-      this->tx_queue_.push_back(p1);
+      // 1. Read Channel Primary Element (Category 0x03, Page ch-1, Index 0x02)
+      if (this->read_registers(CAT_CHANNELS, ch_page, CH_PRIMARY_ELEMENT, 1, regs) && !regs.empty()) {
+        uint16_t v = regs[0];
+        st.primary_index = v & CH_PRIMARY_ELEMENT_ELEMENT_MASK;
+        st.all_tp_lost = (v & CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK) != 0;
+        st.paired = (st.primary_index > 0 && !st.all_tp_lost);
+      } else {
+        st.paired = false;
+      }
 
-      // 2. Only poll Category 0x03 (CHANNELS) & Category 0x02 (PACKED) for PAIRED channels
-      if (this->channels_[ch - 1].paired) {
-        ModbusPacket p2;
-        p2.type = REQ_READ_CHANNEL;
-        p2.channel = ch;
-        p2.category = CAT_CHANNELS;
-        p2.index = CH_REG_TIMER_EVENT;
-        p2.page = page;
-        p2.quantity = 3;
-        this->tx_queue_.push_back(p2);
+      // Update root diagnostic paired status binary sensor
+      if (this->channel_paired_sensors_[ch - 1] != nullptr) {
+        this->channel_paired_sensors_[ch - 1]->publish_state(st.paired);
+      }
 
-        ModbusPacket p3;
-        p3.type = REQ_READ_PACKED;
-        p3.channel = ch;
-        p3.category = CAT_PACKED;
-        p3.index = PACKED_REG_MANUAL_TEMP;
-        p3.page = page;
-        p3.quantity = 8;
-        this->tx_queue_.push_back(p3);
+      if (!st.paired) continue;
+
+      // 2. Read Configuration & Mode (Category 0x02, Page ch-1, Index 0x07)
+      if (this->read_registers(CAT_PACKED, ch_page, PACKED_CONFIGURATION, 1, regs) && !regs.empty()) {
+        uint16_t raw_cfg = regs[0];
+        uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
+        st.mode = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
+      }
+
+      // 3. Read Setpoint Temperature (Category 0x02, Page ch-1, Index 0x00)
+      if (this->read_registers(CAT_PACKED, ch_page, PACKED_MANUAL_TEMPERATURE, 1, regs) && !regs.empty()) {
+        st.setpoint_c = regs[0] / 10.0f;
+      }
+
+      // 4. Read Timer Event / Heating Output Status (Category 0x03, Page ch-1, Index 0x00)
+      if (this->read_registers(CAT_CHANNELS, ch_page, CH_TIMER_EVENT, 1, regs) && !regs.empty()) {
+        bool heating = (regs[0] & CH_TIMER_EVENT_OUTP_ON_MASK) != 0;
+        st.action = heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
+      }
+
+      // 5. Read Element Data (Category 0x01, Page primary_index - 1, Index 0x00, Quantity 11)
+      uint8_t elem_page = st.primary_index - 1;
+      if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+        st.current_temp_c = regs[ELEM_AIR_TEMPERATURE] / 10.0f;
+        if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
+          float ft = regs[ELEM_FLOOR_TEMPERATURE] / 10.0f;
+          st.floor_temp_c = (ft > 1.0f && ft < 90.0f) ? ft : NAN;
+        }
+        if (regs.size() > ELEM_STATUS) {
+          uint16_t status_reg = regs[ELEM_STATUS];
+          st.low_battery = (status_reg & 0x0400) != 0;
+        }
+        if (regs.size() > ELEM_RSSI) {
+          int8_t signed_rssi = static_cast<int8_t>(regs[ELEM_RSSI] & 0xFF);
+          st.rssi = -74.0f + (signed_rssi * 0.5f);
+        }
+        if (regs.size() > ELEM_BATTERY_STATUS) {
+          uint16_t raw_batt = regs[ELEM_BATTERY_STATUS];
+          uint8_t steps = (raw_batt > 10) ? 10 : static_cast<uint8_t>(raw_batt);
+          st.battery_pct = steps * 10;
+        }
       }
     }
-  }
 
-  void loop() override {
-    uint32_t now = millis();
-
-    switch (this->fsm_state_) {
-      case FSM_IDLE: {
-        if (!this->tx_queue_.empty() && (now - this->last_request_time_ > 50)) { // 50ms guard time
-          this->current_packet_ = this->tx_queue_.front();
-          this->tx_queue_.pop_front();
-          this->send_packet_(this->current_packet_);
-          this->last_request_time_ = now;
-          this->fsm_state_ = FSM_WAITING_RESPONSE;
-        }
-        break;
-      }
-      case FSM_WAITING_RESPONSE: {
-        while (this->available()) {
-          uint8_t b;
-          this->read_byte(&b);
-          this->rx_buffer_.push_back(b);
-        }
-
-        if (this->process_rx_buffer_()) {
-          this->fsm_state_ = FSM_IDLE;
-        } else if (now - this->last_request_time_ > 500) { // 500ms timeout
-          ESP_LOGW(TAG, "Timeout waiting for Modbus response (Cat: 0x%02X, Ch: %u)",
-                   this->current_packet_.category, this->current_packet_.channel);
-          this->handle_packet_timeout_(this->current_packet_);
-          this->fsm_state_ = FSM_IDLE;
-        }
-        break;
-      }
-    }
+    this->notify_sub_device_entities_();
   }
 
   void write_setpoint(const std::vector<uint8_t> &channels, float celsius) {
     uint16_t raw_temp = static_cast<uint16_t>(celsius * 10.0f + 0.5f);
     for (uint8_t ch : channels) {
       if (ch < 1 || ch > 16) continue;
-      ModbusPacket p;
-      p.type = REQ_WRITE_SETPOINT;
-      p.channel = ch;
-      p.category = CAT_PACKED;
-      p.index = PACKED_REG_MANUAL_TEMP;
-      p.page = ch - 1;
-      p.quantity = 1;
-      p.payload.push_back(static_cast<uint8_t>(raw_temp >> 8));
-      p.payload.push_back(static_cast<uint8_t>(raw_temp & 0xFF));
-      this->tx_queue_.push_front(p); // High priority write
+      this->write_register(CAT_PACKED, ch - 1, PACKED_MANUAL_TEMPERATURE, raw_temp);
     }
   }
 
   void write_mode(const std::vector<uint8_t> &channels, climate::ClimateMode mode) {
-    // Mode 0 = MANUAL (HEAT), Mode 1 = PERMANENT STANDBY (OFF)
-    uint16_t mode_val = (mode == climate::CLIMATE_MODE_OFF) ? 0x0001 : 0x0000;
-    uint16_t mask_val = 0xFFF8; // Keep all higher bits, replace mode bits 2..0
-
+    uint16_t mode_val = (mode == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : 0x0000;
     for (uint8_t ch : channels) {
       if (ch < 1 || ch > 16) continue;
-      ModbusPacket p;
-      p.type = REQ_WRITE_MODE;
-      p.channel = ch;
-      p.category = CAT_PACKED;
-      p.index = PACKED_REG_CONFIGURATION;
-      p.page = ch - 1;
-      p.quantity = 1;
-      p.payload.push_back(static_cast<uint8_t>(mode_val >> 8));
-      p.payload.push_back(static_cast<uint8_t>(mode_val & 0xFF));
-      p.payload.push_back(static_cast<uint8_t>(mask_val >> 8));
-      p.payload.push_back(static_cast<uint8_t>(mask_val & 0xFF));
-      this->tx_queue_.push_front(p); // High priority write
+      this->write_masked_register(CAT_PACKED, ch - 1, PACKED_CONFIGURATION, 0xFFF8, mode_val);
     }
-  }
-
-  void dump_config() override {
-    ESP_LOGCONFIG(TAG, "Wavin AHC9000 Custom Component");
-    ESP_LOGCONFIG(TAG, "  Timeout: %u ms", this->timeout_ms_);
   }
 
  protected:
-  enum FSMState { FSM_IDLE, FSM_WAITING_RESPONSE };
+  bool read_registers(uint8_t category, uint8_t page, uint8_t index, uint8_t count, std::vector<uint16_t> &out) {
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+      while (this->available()) {
+        uint8_t dummy;
+        this->read_byte(&dummy);
+      }
 
-  void send_packet_(const ModbusPacket &p) {
-    // Flush stale bytes in UART RX buffer before sending request
-    while (this->available()) {
-      uint8_t dummy;
-      this->read_byte(&dummy);
+      uint8_t msg[8];
+      msg[0] = DEVICE_ADDR;
+      msg[1] = FC_READ;
+      msg[2] = category;
+      msg[3] = index;
+      msg[4] = page;
+      msg[5] = count;
+      uint16_t crc = crc16(msg, 6);
+      msg[6] = crc & 0xFF;
+      msg[7] = crc >> 8;
+
+      if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(true);
+      this->write_array(msg, 8);
+      this->flush();
+      delayMicroseconds(250);
+      if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(false);
+
+      std::vector<uint8_t> buf;
+      uint32_t start = millis();
+      while (millis() - start < this->receive_timeout_ms_) {
+        while (this->available()) {
+          int c = this->read();
+          if (c < 0) break;
+          buf.push_back(static_cast<uint8_t>(c));
+          if (buf.size() >= 5) {
+            uint8_t expected = static_cast<uint8_t>(buf[2] + 5);
+            if (buf[0] == DEVICE_ADDR && buf[1] == FC_READ && buf.size() == expected) {
+              if (crc16(buf.data(), buf.size()) != 0) {
+                goto next_attempt;
+              }
+              uint8_t bytes = buf[2];
+              out.clear();
+              for (uint8_t i = 0; i + 1 < bytes; i += 2) {
+                uint16_t w = static_cast<uint16_t>((buf[3 + i] << 8) | buf[3 + i + 1]);
+                out.push_back(w);
+              }
+              return true;
+            }
+          }
+        }
+        delay(1);
+      }
+    next_attempt:;
     }
-    this->rx_buffer_.clear();
-
-    std::vector<uint8_t> frame;
-    frame.push_back(0x01); // Wavin Slave Address
-
-    if (p.type == REQ_READ_ELEMENT || p.type == REQ_READ_CHANNEL || p.type == REQ_READ_PACKED) {
-      frame.push_back(WAVIN_FC_READ_REGISTER);
-      frame.push_back(p.category);
-      frame.push_back(p.index);
-      frame.push_back(p.page);
-      frame.push_back(p.quantity);
-    } else if (p.type == REQ_WRITE_SETPOINT) {
-      frame.push_back(WAVIN_FC_WRITE_REGISTER);
-      frame.push_back(p.category);
-      frame.push_back(p.index);
-      frame.push_back(p.page);
-      frame.push_back(p.quantity);
-      frame.insert(frame.end(), p.payload.begin(), p.payload.end());
-    } else if (p.type == REQ_WRITE_MODE) {
-      frame.push_back(WAVIN_FC_WRITE_MASKED_INDEX);
-      frame.push_back(p.category);
-      frame.push_back(p.index);
-      frame.push_back(p.page);
-      frame.push_back(p.quantity);
-      frame.insert(frame.end(), p.payload.begin(), p.payload.end());
-    }
-
-    uint16_t crc = crc16(frame.data(), frame.size());
-    frame.push_back(static_cast<uint8_t>(crc & 0xFF));
-    frame.push_back(static_cast<uint8_t>(crc >> 8));
-
-    if (this->flow_control_pin_ != nullptr) {
-      this->flow_control_pin_->digital_write(true);
-    }
-    this->write_array(frame.data(), frame.size());
-    this->flush();
-    if (this->flow_control_pin_ != nullptr) {
-      this->flow_control_pin_->digital_write(false);
-    }
+    return false;
   }
 
-  bool process_rx_buffer_() {
-    uint8_t expected_fc = 0;
-    if (this->current_packet_.type == REQ_READ_ELEMENT ||
-        this->current_packet_.type == REQ_READ_CHANNEL ||
-        this->current_packet_.type == REQ_READ_PACKED) {
-      expected_fc = WAVIN_FC_READ_REGISTER;
-    } else if (this->current_packet_.type == REQ_WRITE_SETPOINT) {
-      expected_fc = WAVIN_FC_WRITE_REGISTER;
-    } else if (this->current_packet_.type == REQ_WRITE_MODE) {
-      expected_fc = WAVIN_FC_WRITE_MASKED_INDEX;
-    }
+  bool write_register(uint8_t category, uint8_t page, uint8_t index, uint16_t value) {
+    uint8_t msg[10];
+    msg[0] = DEVICE_ADDR;
+    msg[1] = FC_WRITE;
+    msg[2] = category;
+    msg[3] = index;
+    msg[4] = page;
+    msg[5] = 1;
+    msg[6] = value >> 8;
+    msg[7] = value & 0xFF;
+    uint16_t crc = crc16(msg, 8);
+    msg[8] = crc & 0xFF;
+    msg[9] = crc >> 8;
 
-    // Strip leading noise bytes until slave address 0x01 and expected FC or exception FC is found
-    while (this->rx_buffer_.size() >= 2) {
-      if (this->rx_buffer_[0] == 0x01 && (this->rx_buffer_[1] == expected_fc || (this->rx_buffer_[1] & 0x80) != 0)) {
-        break;
-      }
-      this->rx_buffer_.erase(this->rx_buffer_.begin());
-    }
-
-    if (this->rx_buffer_.size() < 5) return false;
-
-    uint8_t fc = this->rx_buffer_[1];
-
-    // Exception handling
-    if ((fc & 0x80) != 0) {
-      uint16_t frame_crc = this->rx_buffer_[3] | (this->rx_buffer_[4] << 8);
-      if (crc16(this->rx_buffer_.data(), 3) == frame_crc) {
-        ESP_LOGW(TAG, "Wavin Modbus exception 0x%02X for FC 0x%02X", this->rx_buffer_[2], fc);
-        return true;
-      }
-    }
-
-    uint8_t byte_count = this->rx_buffer_[2];
-    size_t expected_len = 5 + byte_count;
-
-    if (this->rx_buffer_.size() < expected_len) {
-      return false;
-    }
-
-    uint16_t frame_crc = this->rx_buffer_[expected_len - 2] | (this->rx_buffer_[expected_len - 1] << 8);
-    if (crc16(this->rx_buffer_.data(), expected_len - 2) != frame_crc) {
-      ESP_LOGW(TAG, "CRC Checksum failed on response frame!");
-      this->rx_buffer_.erase(this->rx_buffer_.begin());
-      return false;
-    }
-
-    std::vector<uint16_t> registers;
-    for (size_t i = 0; i < byte_count; i += 2) {
-      uint16_t val = (this->rx_buffer_[3 + i] << 8) | this->rx_buffer_[3 + i + 1];
-      registers.push_back(val);
-    }
-
-    this->handle_response_registers_(this->current_packet_, registers);
-    this->notify_sub_device_entities_();
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(true);
+    this->write_array(msg, 10);
+    this->flush();
+    delayMicroseconds(250);
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(false);
+    delay(50);
     return true;
   }
 
-  void handle_response_registers_(const ModbusPacket &p, const std::vector<uint16_t> &regs) {
-    if (p.channel < 1 || p.channel > 16) return;
-    auto &st = this->channels_[p.channel - 1];
+  bool write_masked_register(uint8_t category, uint8_t page, uint8_t index, uint16_t and_mask, uint16_t or_mask) {
+    uint8_t msg[12];
+    msg[0] = DEVICE_ADDR;
+    msg[1] = FC_WRITE_MASKED;
+    msg[2] = category;
+    msg[3] = index;
+    msg[4] = page;
+    msg[5] = 1;
+    msg[6] = or_mask >> 8;
+    msg[7] = or_mask & 0xFF;
+    msg[8] = and_mask >> 8;
+    msg[9] = and_mask & 0xFF;
+    uint16_t crc = crc16(msg, 10);
+    msg[10] = crc & 0xFF;
+    msg[11] = crc >> 8;
 
-    if (p.type == REQ_READ_ELEMENT) {
-      if (regs.size() >= 12) {
-        uint32_t addr = (static_cast<uint32_t>(regs[ELEM_REG_ADDRESS_H]) << 16) | regs[ELEM_REG_ADDRESS_L];
-        st.address = addr;
-        st.paired = (addr != 0);
-
-        // Update root diagnostic paired status binary sensor
-        if (this->channel_paired_sensors_[p.channel - 1] != nullptr) {
-          this->channel_paired_sensors_[p.channel - 1]->publish_state(st.paired);
-        }
-
-        if (st.paired) {
-          // Air Temp
-          if (regs[ELEM_REG_AIR_TEMP] != 0x7FFF) {
-            st.air_temp = static_cast<int16_t>(regs[ELEM_REG_AIR_TEMP]) / 10.0f;
-          } else {
-            st.air_temp = NAN;
-          }
-
-          // Floor Temp
-          if (regs[ELEM_REG_FLOOR_TEMP] != 0x7FFF) {
-            st.floor_temp = static_cast<int16_t>(regs[ELEM_REG_FLOOR_TEMP]) / 10.0f;
-          } else {
-            st.floor_temp = NAN;
-          }
-
-          // Status Flags
-          uint16_t status = regs[ELEM_REG_STATUS];
-          st.lost = ((status & ELEM_STATUS_LOST_MASK) != 0);
-          st.low_battery = ((status & ELEM_STATUS_LOW_BATT_MASK) != 0);
-
-          // RSSI
-          int8_t signed_rssi = static_cast<int8_t>(regs[ELEM_REG_RSSI] & 0xFF);
-          st.rssi = -74.0f + (signed_rssi * 0.5f);
-
-          // Battery %
-          uint8_t batt_raw = regs[ELEM_REG_BATTERY] & 0x0F;
-          st.battery_pct = (batt_raw > 10 ? 10 : batt_raw) * 10;
-
-          // Sync Group
-          st.sync_group = regs[ELEM_REG_SYNC_GROUP] & 0xFF;
-        }
-      }
-    } else if (p.type == REQ_READ_CHANNEL) {
-      if (regs.size() >= 3) {
-        st.heating_active = ((regs[CH_REG_TIMER_EVENT] & CH_TIMER_EVENT_OUTP_ON) != 0);
-        st.primary_element = regs[CH_REG_PRIMARY_ELEMENT] & 0x3F;
-        if ((regs[CH_REG_PRIMARY_ELEMENT] & CH_PRIMARY_ELEM_ALL_LOST) != 0) {
-          st.lost = true;
-        }
-      }
-    } else if (p.type == REQ_READ_PACKED) {
-      if (regs.size() >= 8) {
-        st.target_temp = static_cast<int16_t>(regs[PACKED_REG_MANUAL_TEMP]) / 10.0f;
-        uint16_t config = regs[PACKED_REG_CONFIGURATION];
-        uint8_t mode_bits = config & 0x0007;
-        st.mode = (mode_bits == 1) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
-      }
-    }
-  }
-
-  void handle_packet_timeout_(const ModbusPacket &p) {
-    if (p.channel >= 1 && p.channel <= 16) {
-      auto &st = this->channels_[p.channel - 1];
-      if (st.paired) {
-        st.lost = true;
-        this->notify_sub_device_entities_();
-      }
-    }
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(true);
+    this->write_array(msg, 12);
+    this->flush();
+    delayMicroseconds(250);
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(false);
+    delay(50);
+    return true;
   }
 
   void notify_sub_device_entities_() {
@@ -464,17 +310,10 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     }
   }
 
-  FSMState fsm_state_{FSM_IDLE};
-  std::deque<ModbusPacket> tx_queue_;
-  ModbusPacket current_packet_;
-  std::vector<uint8_t> rx_buffer_;
-  uint32_t last_request_time_{0};
-  uint32_t timeout_ms_{500};
+  uint32_t receive_timeout_ms_{1000};
   GPIOPin *flow_control_pin_{nullptr};
-
   std::array<ChannelState, 16> channels_;
   std::array<binary_sensor::BinarySensor *, 16> channel_paired_sensors_;
-
   std::vector<WavinUpdatableEntity *> updatable_entities_;
 };
 
@@ -523,8 +362,8 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     uint8_t primary_ch = this->channels_[0];
     const auto &st = this->parent_->get_channel_data(primary_ch);
 
-    this->current_temperature = st.air_temp;
-    this->target_temperature = st.target_temp;
+    this->current_temperature = st.current_temp_c;
+    this->target_temperature = st.setpoint_c;
     this->mode = st.mode;
 
     if (this->mode == climate::CLIMATE_MODE_OFF) {
@@ -532,7 +371,7 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     } else {
       bool any_heating = false;
       for (uint8_t ch : this->channels_) {
-        if (this->parent_->get_channel_data(ch).heating_active) {
+        if (this->parent_->get_channel_data(ch).action == climate::CLIMATE_ACTION_HEATING) {
           any_heating = true;
           break;
         }
@@ -557,7 +396,6 @@ class WavinZoneBatterySensor : public sensor::Sensor, public Component, public W
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
-    this->publish_state(100.0f);
   }
 
   void update_state() override {
@@ -582,7 +420,6 @@ class WavinZoneRSSISensor : public sensor::Sensor, public Component, public Wavi
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
-    this->publish_state(-60.0f);
   }
 
   void update_state() override {
@@ -636,7 +473,7 @@ class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component
   void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
-    this->publish_state(st.paired ? st.lost : false);
+    this->publish_state(st.paired ? st.all_tp_lost : false);
   }
 
  protected:
@@ -660,7 +497,7 @@ class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public 
     if (this->parent_ == nullptr) return;
     bool any_heating = false;
     for (uint8_t ch : this->channels_) {
-      if (this->parent_->get_channel_data(ch).heating_active) {
+      if (this->parent_->get_channel_data(ch).action == climate::CLIMATE_ACTION_HEATING) {
         any_heating = true;
         break;
       }
