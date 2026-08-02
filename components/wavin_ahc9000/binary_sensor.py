@@ -13,14 +13,36 @@ WavinZoneLowBatterySensor = wavin_ns.class_("WavinZoneLowBatterySensor", binary_
 WavinZoneLostSensor = wavin_ns.class_("WavinZoneLostSensor", binary_sensor.BinarySensor, cg.Component)
 WavinZoneHeatingDemandSensor = wavin_ns.class_("WavinZoneHeatingDemandSensor", binary_sensor.BinarySensor, cg.Component)
 
-CONFIG_SCHEMA = binary_sensor.binary_sensor_schema().extend(
+CONFIG_SCHEMA = cv.typed_schema(
     {
-        cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
-        cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
-        cv.Optional(CONF_CHANNELS): cv.ensure_list(cv.int_range(min=1, max=16)),
-        cv.Required(CONF_TYPE): cv.one_of("low_battery", "lost", "heating_demand", "channel_paired", lower=True),
-    }
-).extend(cv.COMPONENT_SCHEMA)
+        "channel_paired": binary_sensor.binary_sensor_schema().extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
+            }
+        ),
+        "low_battery": binary_sensor.binary_sensor_schema(WavinZoneLowBatterySensor).extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
+            }
+        ),
+        "lost": binary_sensor.binary_sensor_schema(WavinZoneLostSensor).extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
+            }
+        ),
+        "heating_demand": binary_sensor.binary_sensor_schema(WavinZoneHeatingDemandSensor).extend(
+            {
+                cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
+                cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
+                cv.Optional(CONF_CHANNELS): cv.ensure_list(cv.int_range(min=1, max=16)),
+            }
+        ),
+    },
+    lower=True,
+)
 
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_WAVIN_ID])
@@ -38,4 +60,5 @@ async def to_code(config):
     elif sens_type == "heating_demand":
         channels = [config[CONF_CHANNEL]] if CONF_CHANNEL in config else config[CONF_CHANNELS]
         var = cg.new_Pvariable(config[CONF_ID], hub, channels)
+
     await binary_sensor.register_binary_sensor(var, config)
