@@ -395,16 +395,24 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     uint8_t primary_ch = this->channels_[0];
     const auto &st = this->parent_->get_channel_data(primary_ch);
 
-    if (!std::isnan(st.current_temp_c)) {
-      this->current_temperature = st.current_temp_c;
-    }
-    if (!std::isnan(st.setpoint_c)) {
-      this->target_temperature = st.setpoint_c;
-    }
-    this->mode = st.mode;
+    bool changed = false;
 
+    if (!std::isnan(st.current_temp_c) && this->current_temperature != st.current_temp_c) {
+      this->current_temperature = st.current_temp_c;
+      changed = true;
+    }
+    if (!std::isnan(st.setpoint_c) && this->target_temperature != st.setpoint_c) {
+      this->target_temperature = st.setpoint_c;
+      changed = true;
+    }
+    if (this->mode != st.mode) {
+      this->mode = st.mode;
+      changed = true;
+    }
+
+    climate::ClimateAction new_action;
     if (this->mode == climate::CLIMATE_MODE_OFF) {
-      this->action = climate::CLIMATE_ACTION_OFF;
+      new_action = climate::CLIMATE_ACTION_OFF;
     } else {
       bool any_heating = false;
       for (uint8_t ch : this->channels_) {
@@ -413,10 +421,17 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
           break;
         }
       }
-      this->action = any_heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
+      new_action = any_heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
     }
 
-    this->publish_state();
+    if (this->action != new_action) {
+      this->action = new_action;
+      changed = true;
+    }
+
+    if (changed || std::isnan(this->current_temperature)) {
+      this->publish_state();
+    }
   }
 
  protected:
@@ -439,7 +454,9 @@ class WavinZoneBatterySensor : public sensor::Sensor, public Component, public W
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
     if (st.paired) {
-      this->publish_state(st.battery_pct);
+      if (!this->has_state() || this->state != (float)st.battery_pct) {
+        this->publish_state(st.battery_pct);
+      }
     }
   }
 
