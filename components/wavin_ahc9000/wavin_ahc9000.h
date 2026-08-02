@@ -393,7 +393,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
 
           // Status Flags
           uint16_t status = regs[ELEM_REG_STATUS];
-          st.lost = ((status & ELEM_STATUS_LOST_MASK) != 0) || ((status & ELEM_STATUS_ALIVE_MASK) == 0);
+          st.lost = ((status & ELEM_STATUS_LOST_MASK) != 0);
           st.low_battery = ((status & ELEM_STATUS_LOW_BATT_MASK) != 0);
 
           // RSSI
@@ -461,6 +461,11 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->target_temperature = 20.0f;
+    this->current_temperature = NAN;
+    this->mode = climate::CLIMATE_MODE_HEAT;
+    this->action = climate::CLIMATE_ACTION_IDLE;
+    this->publish_state();
   }
 
   climate::ClimateTraits traits() override {
@@ -528,13 +533,11 @@ class WavinZoneBatterySensor : public sensor::Sensor, public Component, public W
     }
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
-    if (st.paired && !st.lost) {
+    if (st.paired) {
       this->publish_state(st.battery_pct);
-    } else {
-      this->publish_state(NAN);
     }
   }
 
@@ -554,13 +557,11 @@ class WavinZoneRSSISensor : public sensor::Sensor, public Component, public Wavi
     }
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
     if (st.paired && !std::isnan(st.rssi)) {
       this->publish_state(st.rssi);
-    } else {
-      this->publish_state(NAN);
     }
   }
 
@@ -578,16 +579,13 @@ class WavinZoneLowBatterySensor : public binary_sensor::BinarySensor, public Com
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->publish_state(false);
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
-    if (st.paired) {
-      this->publish_state(st.low_battery);
-    } else {
-      this->publish_state(false);
-    }
+    this->publish_state(st.paired && st.low_battery);
   }
 
  protected:
@@ -604,16 +602,13 @@ class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->publish_state(false);
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
-    if (st.paired) {
-      this->publish_state(st.lost);
-    } else {
-      this->publish_state(true);
-    }
+    this->publish_state(st.paired ? st.lost : false);
   }
 
  protected:
@@ -630,9 +625,10 @@ class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public 
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->publish_state(false);
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->parent_ == nullptr) return;
     bool any_heating = false;
     for (uint8_t ch : this->channels_) {
