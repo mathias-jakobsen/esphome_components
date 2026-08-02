@@ -405,7 +405,7 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
         changed = true;
       }
     }
-    if (!std::isnan(st.setpoint_c) && this->target_temperature != st.setpoint_c) {
+    if (!std::isnan(st.setpoint_c) && (std::isnan(this->target_temperature) || std::abs(this->target_temperature - st.setpoint_c) > 0.01f)) {
       this->target_temperature = st.setpoint_c;
       changed = true;
     }
@@ -433,7 +433,8 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
       changed = true;
     }
 
-    if (changed || std::isnan(this->current_temperature)) {
+    // Only publish_state if there were changes AND current_temperature is valid (not NAN)
+    if (changed && !std::isnan(this->current_temperature)) {
       this->publish_state();
     }
   }
@@ -551,13 +552,16 @@ class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
-    this->publish_state(false);
+    this->publish_state(true);
   }
 
   void update_state() override {
     if (this->parent_ == nullptr) return;
     const auto &st = this->parent_->get_channel_data(this->channel_);
-    this->publish_state(st.paired ? st.all_tp_lost : false);
+    bool is_online = st.paired || (!st.all_tp_lost && !std::isnan(st.current_temp_c));
+    if (!this->has_state() || this->state != is_online) {
+      this->publish_state(is_online);
+    }
   }
 
  protected:
