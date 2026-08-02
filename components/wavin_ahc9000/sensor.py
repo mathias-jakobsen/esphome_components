@@ -4,8 +4,13 @@ from esphome.components import sensor
 from esphome.const import (
     CONF_ID,
     CONF_TYPE,
+    UNIT_PERCENT,
+    UNIT_DECIBEL_MILLIWATT,
     UNIT_CELSIUS,
+    DEVICE_CLASS_BATTERY,
+    DEVICE_CLASS_SIGNAL_STRENGTH,
     DEVICE_CLASS_TEMPERATURE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_MEASUREMENT,
 )
 
@@ -32,13 +37,27 @@ CONFIG_SCHEMA = cv.typed_schema(
                 cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
             }
         ).extend(cv.COMPONENT_SCHEMA),
-        "battery": sensor.sensor_schema(WavinZoneBatterySensor).extend(
+        "battery": sensor.sensor_schema(
+            WavinZoneBatterySensor,
+            unit_of_measurement=UNIT_PERCENT,
+            accuracy_decimals=0,
+            device_class=DEVICE_CLASS_BATTERY,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(
             {
                 cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
                 cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
             }
         ).extend(cv.COMPONENT_SCHEMA),
-        "rssi": sensor.sensor_schema(WavinZoneRSSISensor).extend(
+        "rssi": sensor.sensor_schema(
+            WavinZoneRSSISensor,
+            unit_of_measurement=UNIT_DECIBEL_MILLIWATT,
+            accuracy_decimals=0,
+            device_class=DEVICE_CLASS_SIGNAL_STRENGTH,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(
             {
                 cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
                 cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
