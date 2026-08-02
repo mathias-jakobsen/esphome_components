@@ -169,7 +169,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     for (uint8_t ch = 1; ch <= 16; ch++) {
       uint8_t page = ch - 1;
 
-      // 1. Read Category 0x01 (ELEMENTS) Page ch-1, Index 0x00, Quantity 12
+      // 1. Always poll Category 0x01 (ELEMENTS) for all 16 channels to detect paired status
       ModbusPacket p1;
       p1.type = REQ_READ_ELEMENT;
       p1.channel = ch;
@@ -179,25 +179,26 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
       p1.quantity = 12;
       this->tx_queue_.push_back(p1);
 
-      // 2. Read Category 0x03 (CHANNELS) Page ch-1, Index 0x00, Quantity 3
-      ModbusPacket p2;
-      p2.type = REQ_READ_CHANNEL;
-      p2.channel = ch;
-      p2.category = CAT_CHANNELS;
-      p2.index = CH_REG_TIMER_EVENT;
-      p2.page = page;
-      p2.quantity = 3;
-      this->tx_queue_.push_back(p2);
+      // 2. Only poll Category 0x03 (CHANNELS) & Category 0x02 (PACKED) for PAIRED channels
+      if (this->channels_[ch - 1].paired) {
+        ModbusPacket p2;
+        p2.type = REQ_READ_CHANNEL;
+        p2.channel = ch;
+        p2.category = CAT_CHANNELS;
+        p2.index = CH_REG_TIMER_EVENT;
+        p2.page = page;
+        p2.quantity = 3;
+        this->tx_queue_.push_back(p2);
 
-      // 3. Read Category 0x02 (PACKED DATA) Page ch-1, Index 0x00, Quantity 8
-      ModbusPacket p3;
-      p3.type = REQ_READ_PACKED;
-      p3.channel = ch;
-      p3.category = CAT_PACKED;
-      p3.index = PACKED_REG_MANUAL_TEMP;
-      p3.page = page;
-      p3.quantity = 8;
-      this->tx_queue_.push_back(p3);
+        ModbusPacket p3;
+        p3.type = REQ_READ_PACKED;
+        p3.channel = ch;
+        p3.category = CAT_PACKED;
+        p3.index = PACKED_REG_MANUAL_TEMP;
+        p3.page = page;
+        p3.quantity = 8;
+        this->tx_queue_.push_back(p3);
+      }
     }
   }
 
@@ -531,6 +532,7 @@ class WavinZoneBatterySensor : public sensor::Sensor, public Component, public W
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->publish_state(100.0f);
   }
 
   void update_state() override {
@@ -555,6 +557,7 @@ class WavinZoneRSSISensor : public sensor::Sensor, public Component, public Wavi
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
+    this->publish_state(100.0f);
   }
 
   void update_state() override {
