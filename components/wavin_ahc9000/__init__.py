@@ -4,24 +4,33 @@ from esphome.components import uart
 from esphome.const import CONF_ID
 
 CODEOWNERS = ["@mathias-jakobsen"]
-AUTO_LOAD = ["uart", "climate", "sensor", "binary_sensor"]
+DEPENDENCIES = ["uart"]
+AUTO_LOAD = ["climate", "sensor", "binary_sensor"]
 
 wavin_ns = cg.esphome_ns.namespace("wavin_ahc9000")
-WavinAHC9000Component = wavin_ns.class_("WavinAHC9000Component", cg.PollingComponent, uart.UARTDevice)
+WavinAHC9000Component = wavin_ns.class_(
+    "WavinAHC9000Component", cg.PollingComponent, uart.UARTDevice
+)
 
-CONF_UART_ID = "uart_id"
+CONF_RECEIVE_TIMEOUT = "receive_timeout"
 
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(WavinAHC9000Component),
-            cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
+            cv.Optional(
+                CONF_RECEIVE_TIMEOUT, default="250ms"
+            ): cv.positive_time_period_milliseconds,
         }
     )
-    .extend(uart.UART_DEVICE_SCHEMA)
     .extend(cv.polling_component_schema("10s"))
+    .extend(uart.UART_DEVICE_SCHEMA)
 )
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], await cg.get_variable(config[CONF_UART_ID]))
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+    await uart.register_uart_device(var, config)
+
+    if CONF_RECEIVE_TIMEOUT in config:
+        cg.add(var.set_receive_timeout_ms(config[CONF_RECEIVE_TIMEOUT]))
