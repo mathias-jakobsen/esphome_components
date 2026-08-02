@@ -116,6 +116,13 @@ struct ModbusPacket {
   std::vector<uint8_t> payload;
 };
 
+
+class WavinUpdatableEntity {
+ public:
+  virtual ~WavinUpdatableEntity() = default;
+  virtual void update_state() = 0;
+};
+
 // Forward declaration
 class WavinZoneClimate;
 class WavinZoneBatterySensor;
@@ -139,9 +146,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     }
   }
 
-  void register_climate(WavinZoneClimate *c) { this->climates_.push_back(c); }
-  void register_sensor(sensor::Sensor *s) { this->sensors_.push_back(s); }
-  void register_binary_sensor(binary_sensor::BinarySensor *b) { this->binary_sensors_.push_back(b); }
+  void register_updatable(WavinUpdatableEntity *e) { this->updatable_entities_.push_back(e); }
 
   const ChannelState &get_channel_data(uint8_t channel) const {
     static ChannelState empty_state;
@@ -444,26 +449,22 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   std::array<ChannelState, 16> channels_;
   std::array<binary_sensor::BinarySensor *, 16> channel_paired_sensors_;
 
-  std::vector<WavinZoneClimate *> climates_;
-  std::vector<sensor::Sensor *> sensors_;
-  std::vector<binary_sensor::BinarySensor *> binary_sensors_;
+  std::vector<WavinUpdatableEntity *> updatable_entities_;
 };
 
-class WavinZoneClimate : public climate::Climate, public Component {
+class WavinZoneClimate : public climate::Climate, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneClimate(WavinAHC9000Component *parent, std::vector<uint8_t> channels)
       : parent_(parent), channels_(channels) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_climate(this);
+      this->parent_->register_updatable(this);
     }
   }
 
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
-    traits.set_supports_action(true);
-    traits.set_supports_current_temperature(true);
     traits.set_visual_min_temperature(5.0f);
     traits.set_visual_max_temperature(35.0f);
     traits.set_visual_target_temperature_step(0.5f);
@@ -516,14 +517,14 @@ class WavinZoneClimate : public climate::Climate, public Component {
   std::vector<uint8_t> channels_;
 };
 
-class WavinZoneBatterySensor : public sensor::Sensor, public Component {
+class WavinZoneBatterySensor : public sensor::Sensor, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneBatterySensor(WavinAHC9000Component *parent, uint8_t channel)
       : parent_(parent), channel_(channel) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_sensor(this);
+      this->parent_->register_updatable(this);
     }
   }
 
@@ -542,14 +543,14 @@ class WavinZoneBatterySensor : public sensor::Sensor, public Component {
   uint8_t channel_;
 };
 
-class WavinZoneRSSISensor : public sensor::Sensor, public Component {
+class WavinZoneRSSISensor : public sensor::Sensor, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneRSSISensor(WavinAHC9000Component *parent, uint8_t channel)
       : parent_(parent), channel_(channel) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_sensor(this);
+      this->parent_->register_updatable(this);
     }
   }
 
@@ -568,14 +569,14 @@ class WavinZoneRSSISensor : public sensor::Sensor, public Component {
   uint8_t channel_;
 };
 
-class WavinZoneLowBatterySensor : public binary_sensor::BinarySensor, public Component {
+class WavinZoneLowBatterySensor : public binary_sensor::BinarySensor, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneLowBatterySensor(WavinAHC9000Component *parent, uint8_t channel)
       : parent_(parent), channel_(channel) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_binary_sensor(this);
+      this->parent_->register_updatable(this);
     }
   }
 
@@ -594,14 +595,14 @@ class WavinZoneLowBatterySensor : public binary_sensor::BinarySensor, public Com
   uint8_t channel_;
 };
 
-class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component {
+class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneLostSensor(WavinAHC9000Component *parent, uint8_t channel)
       : parent_(parent), channel_(channel) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_binary_sensor(this);
+      this->parent_->register_updatable(this);
     }
   }
 
@@ -620,14 +621,14 @@ class WavinZoneLostSensor : public binary_sensor::BinarySensor, public Component
   uint8_t channel_;
 };
 
-class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public Component {
+class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public Component, public WavinUpdatableEntity {
  public:
   WavinZoneHeatingDemandSensor(WavinAHC9000Component *parent, std::vector<uint8_t> channels)
       : parent_(parent), channels_(channels) {}
 
   void setup() override {
     if (this->parent_ != nullptr) {
-      this->parent_->register_binary_sensor(this);
+      this->parent_->register_updatable(this);
     }
   }
 
@@ -649,17 +650,8 @@ class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public 
 };
 
 inline void WavinAHC9000Component::notify_sub_device_entities_() {
-  for (auto *c : this->climates_) {
-    c->update_state();
-  }
-  for (auto *s : this->sensors_) {
-    if (auto *bat = dynamic_cast<WavinZoneBatterySensor *>(s)) bat->update_state();
-    if (auto *rssi = dynamic_cast<WavinZoneRSSISensor *>(s)) rssi->update_state();
-  }
-  for (auto *b : this->binary_sensors_) {
-    if (auto *low = dynamic_cast<WavinZoneLowBatterySensor *>(b)) low->update_state();
-    if (auto *lost = dynamic_cast<WavinZoneLostSensor *>(b)) lost->update_state();
-    if (auto *heat = dynamic_cast<WavinZoneHeatingDemandSensor *>(b)) heat->update_state();
+  for (auto *e : this->updatable_entities_) {
+    e->update_state();
   }
 }
 
