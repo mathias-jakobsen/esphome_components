@@ -13,6 +13,7 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
+#include <array>
 
 namespace esphome {
 namespace wavin_ahc9000 {
@@ -87,10 +88,10 @@ struct ChannelState {
   float air_temp{NAN};
   float floor_temp{NAN};
   float target_temp{20.0f};
-  uint8_t battery_pct{0};
+  uint8_t battery_pct{100};
   bool low_battery{false};
   bool lost{false};
-  float rssi{NAN};
+  float rssi{-60.0f};
   bool heating_active{false};
   uint8_t sync_group{0};
   uint8_t primary_element{0};
@@ -116,7 +117,6 @@ struct ModbusPacket {
   std::vector<uint8_t> payload;
 };
 
-
 class WavinUpdatableEntity {
  public:
   virtual ~WavinUpdatableEntity() = default;
@@ -124,12 +124,7 @@ class WavinUpdatableEntity {
 };
 
 // Forward declaration
-class WavinZoneClimate;
-class WavinZoneBatterySensor;
-class WavinZoneRSSISensor;
-class WavinZoneLowBatterySensor;
-class WavinZoneLostSensor;
-class WavinZoneHeatingDemandSensor;
+class WavinAHC9000Component;
 
 class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
  public:
@@ -207,12 +202,11 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
 
     switch (this->fsm_state_) {
       case FSM_IDLE: {
-        if (!this->tx_queue_.empty()) {
+        if (!this->tx_queue_.empty() && (now - this->last_request_time_ > 50)) { // 50ms guard time
           this->current_packet_ = this->tx_queue_.front();
           this->tx_queue_.pop_front();
           this->send_packet_(this->current_packet_);
           this->last_request_time_ = now;
-          this->rx_buffer_.clear();
           this->fsm_state_ = FSM_WAITING_RESPONSE;
         }
         break;
@@ -226,7 +220,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
 
         if (this->process_rx_buffer_()) {
           this->fsm_state_ = FSM_IDLE;
-        } else if (now - this->last_request_time_ > this->timeout_ms_) {
+        } else if (now - this->last_request_time_ > 500) { // 500ms timeout
           ESP_LOGW(TAG, "Timeout waiting for Modbus response (Cat: 0x%02X, Ch: %u)",
                    this->current_packet_.category, this->current_packet_.channel);
           this->handle_packet_timeout_(this->current_packet_);
@@ -268,7 +262,6 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
       p.index = PACKED_REG_CONFIGURATION;
       p.page = ch - 1;
       p.quantity = 1;
-      // FC 0x45 payload: Data (2 bytes) + Mask (2 bytes)
       p.payload.push_back(static_cast<uint8_t>(mode_val >> 8));
       p.payload.push_back(static_cast<uint8_t>(mode_val & 0xFF));
       p.payload.push_back(static_cast<uint8_t>(mask_val >> 8));
@@ -286,6 +279,13 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   enum FSMState { FSM_IDLE, FSM_WAITING_RESPONSE };
 
   void send_packet_(const ModbusPacket &p) {
+    // Flush stale bytes in UART RX buffer before sending request
+    while (this->available()) {
+      uint8_t dummy;
+      this->read_byte(&dummy);
+    }
+    this->rx_buffer_.clear();
+
     std::vector<uint8_t> frame;
     frame.push_back(0x01); // Wavin Slave Address
 
@@ -326,6 +326,25 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   }
 
   bool process_rx_buffer_() {
+    uint8_t expected_fc = 0;
+    if (this->current_packet_.type == REQ_READ_ELEMENT ||
+        this->current_packet_.type == REQ_READ_CHANNEL ||
+        this->current_packet_.type == REQ_READ_PACKED) {
+      expected_fc = WAVIN_FC_READ_REGISTER;
+    } else if (this->current_packet_.type == REQ_WRITE_SETPOINT) {
+      expected_fc = WAVIN_FC_WRITE_REGISTER;
+    } else if (this->current_packet_.type == REQ_WRITE_MODE) {
+      expected_fc = WAVIN_FC_WRITE_MASKED_INDEX;
+    }
+
+    // Strip leading noise bytes until slave address 0x01 and expected FC or exception FC is found
+    while (this->rx_buffer_.size() >= 2) {
+      if (this->rx_buffer_[0] == 0x01 && (this->rx_buffer_[1] == expected_fc || (this->rx_buffer_[1] & 0x80) != 0)) {
+        break;
+      }
+      this->rx_buffer_.erase(this->rx_buffer_.begin());
+    }
+
     if (this->rx_buffer_.size() < 5) return false;
 
     uint8_t fc = this->rx_buffer_[1];
@@ -349,7 +368,8 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     uint16_t frame_crc = this->rx_buffer_[expected_len - 2] | (this->rx_buffer_[expected_len - 1] << 8);
     if (crc16(this->rx_buffer_.data(), expected_len - 2) != frame_crc) {
       ESP_LOGW(TAG, "CRC Checksum failed on response frame!");
-      return true; // Discard invalid frame
+      this->rx_buffer_.erase(this->rx_buffer_.begin());
+      return false;
     }
 
     std::vector<uint16_t> registers;
@@ -359,6 +379,7 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     }
 
     this->handle_response_registers_(this->current_packet_, registers);
+    this->notify_sub_device_entities_();
     return true;
   }
 
@@ -425,26 +446,30 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
         st.mode = (mode_bits == 1) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
       }
     }
-
-    this->notify_sub_device_entities_();
   }
 
   void handle_packet_timeout_(const ModbusPacket &p) {
     if (p.channel >= 1 && p.channel <= 16) {
       auto &st = this->channels_[p.channel - 1];
-      st.lost = true; // Flag channel as lost gracefully on timeout
-      this->notify_sub_device_entities_();
+      if (st.paired) {
+        st.lost = true;
+        this->notify_sub_device_entities_();
+      }
     }
   }
 
-  void notify_sub_device_entities_();
+  void notify_sub_device_entities_() {
+    for (auto *e : this->updatable_entities_) {
+      e->update_state();
+    }
+  }
 
   FSMState fsm_state_{FSM_IDLE};
   std::deque<ModbusPacket> tx_queue_;
   ModbusPacket current_packet_;
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_request_time_{0};
-  uint32_t timeout_ms_{100};
+  uint32_t timeout_ms_{500};
   GPIOPin *flow_control_pin_{nullptr};
 
   std::array<ChannelState, 16> channels_;
@@ -492,7 +517,7 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     this->publish_state();
   }
 
-  void update_state() {
+  void update_state() override {
     if (this->channels_.empty() || this->parent_ == nullptr) return;
 
     uint8_t primary_ch = this->channels_[0];
@@ -557,7 +582,7 @@ class WavinZoneRSSISensor : public sensor::Sensor, public Component, public Wavi
     if (this->parent_ != nullptr) {
       this->parent_->register_updatable(this);
     }
-    this->publish_state(100.0f);
+    this->publish_state(-60.0f);
   }
 
   void update_state() override {
@@ -647,12 +672,6 @@ class WavinZoneHeatingDemandSensor : public binary_sensor::BinarySensor, public 
   WavinAHC9000Component *parent_;
   std::vector<uint8_t> channels_;
 };
-
-inline void WavinAHC9000Component::notify_sub_device_entities_() {
-  for (auto *e : this->updatable_entities_) {
-    e->update_state();
-  }
-}
 
 }  // namespace wavin_ahc9000
 }  // namespace esphome
