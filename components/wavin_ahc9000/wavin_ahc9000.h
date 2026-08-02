@@ -397,9 +397,11 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
 
     bool changed = false;
 
-    if (!std::isnan(st.current_temp_c) && this->current_temperature != st.current_temp_c) {
-      this->current_temperature = st.current_temp_c;
-      changed = true;
+    if (!std::isnan(st.current_temp_c)) {
+      if (std::isnan(this->current_temperature) || std::abs(this->current_temperature - st.current_temp_c) > 0.01f) {
+        this->current_temperature = st.current_temp_c;
+        changed = true;
+      }
     }
     if (!std::isnan(st.setpoint_c) && this->target_temperature != st.setpoint_c) {
       this->target_temperature = st.setpoint_c;
@@ -437,6 +439,32 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
  protected:
   WavinAHC9000Component *parent_;
   std::vector<uint8_t> channels_;
+};
+
+class WavinZoneTemperatureSensor : public sensor::Sensor, public Component, public WavinUpdatableEntity {
+ public:
+  WavinZoneTemperatureSensor(WavinAHC9000Component *parent, uint8_t channel)
+      : parent_(parent), channel_(channel) {}
+
+  void setup() override {
+    if (this->parent_ != nullptr) {
+      this->parent_->register_updatable(this);
+    }
+  }
+
+  void update_state() override {
+    if (this->parent_ == nullptr) return;
+    const auto &st = this->parent_->get_channel_data(this->channel_);
+    if (st.paired && !std::isnan(st.current_temp_c)) {
+      if (!this->has_state() || std::abs(this->state - st.current_temp_c) > 0.01f) {
+        this->publish_state(st.current_temp_c);
+      }
+    }
+  }
+
+ protected:
+  WavinAHC9000Component *parent_;
+  uint8_t channel_;
 };
 
 class WavinZoneBatterySensor : public sensor::Sensor, public Component, public WavinUpdatableEntity {
