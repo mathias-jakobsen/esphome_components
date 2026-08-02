@@ -80,94 +80,645 @@ wavin_ahc9000:
   update_interval: 10s
 
 # ==============================================================================
-# PARENT DEVICE (ROOT GATEWAY) DIAGNOSTICS: 16 CHANNEL PAIRED STATUS SENSORS
-# Auto-detected by polling Element Address registers (Category 0x01, Reg 0x00 & 0x01)
+# ROOT GATEWAY DIAGNOSTICS: 16 CHANNEL PAIRED STATUS BINARY SENSORS
+# Auto-detected by polling Element Address registers
 # ==============================================================================
 binary_sensor:
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: channel_paired
     name: "Wavin Channel 1 Paired Status"
     id: wavin_ch1_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: channel_paired
     name: "Wavin Channel 2 Paired Status"
     id: wavin_ch2_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 3
+    type: channel_paired
     name: "Wavin Channel 3 Paired Status"
     id: wavin_ch3_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 4
+    type: channel_paired
     name: "Wavin Channel 4 Paired Status"
     id: wavin_ch4_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: channel_paired
     name: "Wavin Channel 5 Paired Status"
     id: wavin_ch5_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: channel_paired
     name: "Wavin Channel 6 Paired Status"
     id: wavin_ch6_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: channel_paired
     name: "Wavin Channel 7 Paired Status"
     id: wavin_ch7_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: channel_paired
     name: "Wavin Channel 8 Paired Status"
     id: wavin_ch8_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: channel_paired
     name: "Wavin Channel 9 Paired Status"
     id: wavin_ch9_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: channel_paired
     name: "Wavin Channel 10 Paired Status"
     id: wavin_ch10_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 11
+    type: channel_paired
     name: "Wavin Channel 11 Paired Status"
     id: wavin_ch11_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 12
+    type: channel_paired
     name: "Wavin Channel 12 Paired Status"
     id: wavin_ch12_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 13
+    type: channel_paired
     name: "Wavin Channel 13 Paired Status"
     id: wavin_ch13_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 14
+    type: channel_paired
     name: "Wavin Channel 14 Paired Status"
     id: wavin_ch14_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 15
+    type: channel_paired
     name: "Wavin Channel 15 Paired Status"
     id: wavin_ch15_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
-  - platform: template
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 16
+    type: channel_paired
     name: "Wavin Channel 16 Paired Status"
     id: wavin_ch16_paired
     entity_category: diagnostic
     icon: "mdi:radiator"
 
+  # --- SUB-DEVICE DIAGNOSTIC BINARY SENSORS ---
+  # Kitchen (Channel 1)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: low_battery
+    name: "Kitchen-Dining Room Low Battery"
+    id: kitchen_low_battery
+    device_id: subdev_kitchen
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: lost
+    name: "Kitchen-Dining Room Thermostat Offline"
+    id: kitchen_lost
+    device_id: subdev_kitchen
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: heating_demand
+    name: "Kitchen-Dining Room Heating Demand"
+    id: kitchen_heating_demand
+    device_id: subdev_kitchen
+    icon: "mdi:radiator"
+
+  # Guest Toilet (Channel 2)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: low_battery
+    name: "Guest Toilet Low Battery"
+    id: guest_toilet_low_battery
+    device_id: subdev_guest_toilet
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: lost
+    name: "Guest Toilet Thermostat Offline"
+    id: guest_toilet_lost
+    device_id: subdev_guest_toilet
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: heating_demand
+    name: "Guest Toilet Heating Demand"
+    id: guest_toilet_heating_demand
+    device_id: subdev_guest_toilet
+    icon: "mdi:radiator"
+
+  # Bedroom (Channel 5)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: low_battery
+    name: "Bedroom Low Battery"
+    id: bedroom_low_battery
+    device_id: subdev_bedroom
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: lost
+    name: "Bedroom Thermostat Offline"
+    id: bedroom_lost
+    device_id: subdev_bedroom
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: heating_demand
+    name: "Bedroom Heating Demand"
+    id: bedroom_heating_demand
+    device_id: subdev_bedroom
+    icon: "mdi:radiator"
+
+  # Walk In (Channel 6)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: low_battery
+    name: "Walk In Low Battery"
+    id: walk_in_low_battery
+    device_id: subdev_walk_in
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: lost
+    name: "Walk In Thermostat Offline"
+    id: walk_in_lost
+    device_id: subdev_walk_in
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: heating_demand
+    name: "Walk In Heating Demand"
+    id: walk_in_heating_demand
+    device_id: subdev_walk_in
+    icon: "mdi:radiator"
+
+  # Walkthrough (Channel 7)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: low_battery
+    name: "Walkthrough Low Battery"
+    id: walkthrough_low_battery
+    device_id: subdev_walkthrough
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: lost
+    name: "Walkthrough Thermostat Offline"
+    id: walkthrough_lost
+    device_id: subdev_walkthrough
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: heating_demand
+    name: "Walkthrough Heating Demand"
+    id: walkthrough_heating_demand
+    device_id: subdev_walkthrough
+    icon: "mdi:radiator"
+
+  # Bathroom (Channel 8)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: low_battery
+    name: "Bathroom Low Battery"
+    id: bathroom_low_battery
+    device_id: subdev_bathroom
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: lost
+    name: "Bathroom Thermostat Offline"
+    id: bathroom_lost
+    device_id: subdev_bathroom
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: heating_demand
+    name: "Bathroom Heating Demand"
+    id: bathroom_heating_demand
+    device_id: subdev_bathroom
+    icon: "mdi:radiator"
+
+  # Kamma's Room (Channel 9)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: low_battery
+    name: "Kamma's Room Low Battery"
+    id: kamma_low_battery
+    device_id: subdev_kamma
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: lost
+    name: "Kamma's Room Thermostat Offline"
+    id: kamma_lost
+    device_id: subdev_kamma
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: heating_demand
+    name: "Kamma's Room Heating Demand"
+    id: kamma_heating_demand
+    device_id: subdev_kamma
+    icon: "mdi:radiator"
+
+  # Hubert's Room (Channel 10)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: low_battery
+    name: "Hubert's Room Low Battery"
+    id: hubert_low_battery
+    device_id: subdev_hubert
+    device_class: battery
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: lost
+    name: "Hubert's Room Thermostat Offline"
+    id: hubert_lost
+    device_id: subdev_hubert
+    device_class: problem
+    entity_category: diagnostic
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: heating_demand
+    name: "Hubert's Room Heating Demand"
+    id: hubert_heating_demand
+    device_id: subdev_hubert
+    icon: "mdi:radiator"
+
 # ==============================================================================
+# SUB-DEVICES CLIMATE ENTITIES (ONE UNIFIED ENTITY PER PHYSICAL ROOM/ZONE)
+# ==============================================================================
+climate:
+  # Kitchen (Channel 1)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    name: "Kitchen-Dining Room Floor heating"
+    id: climate_kitchen
+    device_id: subdev_kitchen
+
+  # Guest Toilet (Channel 2)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    name: "Guest Toilet Floor heating"
+    id: climate_guest_toilet
+    device_id: subdev_guest_toilet
+
+  # Bedroom (Channel 5)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    name: "Bedroom Floor heating"
+    id: climate_bedroom
+    device_id: subdev_bedroom
+
+  # Walk In (Channel 6)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    name: "Walk In Floor heating"
+    id: climate_walk_in
+    device_id: subdev_walk_in
+
+  # Walkthrough (Channel 7)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    name: "Walkthrough Floor heating"
+    id: climate_walkthrough
+    device_id: subdev_walkthrough
+
+  # Bathroom (Channel 8)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    name: "Bathroom Floor heating"
+    id: climate_bathroom
+    device_id: subdev_bathroom
+
+  # Kamma's Room (Channel 9)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    name: "Kamma's Room Floor heating"
+    id: climate_kamma
+    device_id: subdev_kamma
+
+  # Hubert's Room (Channel 10)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    name: "Hubert's Room Floor heating"
+    id: climate_hubert
+    device_id: subdev_hubert
+
+# ==============================================================================
+# SUB-DEVICES SENSORS (BATTERY % & WIRELESS SIGNAL STRENGTH RSSI)
+# ==============================================================================
+sensor:
+  # Kitchen (Channel 1)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: battery
+    name: "Kitchen-Dining Room Battery"
+    id: kitchen_battery
+    device_id: subdev_kitchen
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 1
+    type: rssi
+    name: "Kitchen-Dining Room RSSI"
+    id: kitchen_rssi
+    device_id: subdev_kitchen
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Guest Toilet (Channel 2)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: battery
+    name: "Guest Toilet Battery"
+    id: guest_toilet_battery
+    device_id: subdev_guest_toilet
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 2
+    type: rssi
+    name: "Guest Toilet RSSI"
+    id: guest_toilet_rssi
+    device_id: subdev_guest_toilet
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Bedroom (Channel 5)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: battery
+    name: "Bedroom Battery"
+    id: bedroom_battery
+    device_id: subdev_bedroom
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 5
+    type: rssi
+    name: "Bedroom RSSI"
+    id: bedroom_rssi
+    device_id: subdev_bedroom
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Walk In (Channel 6)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: battery
+    name: "Walk In Battery"
+    id: walk_in_battery
+    device_id: subdev_walk_in
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 6
+    type: rssi
+    name: "Walk In RSSI"
+    id: walk_in_rssi
+    device_id: subdev_walk_in
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Walkthrough (Channel 7)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: battery
+    name: "Walkthrough Battery"
+    id: walkthrough_battery
+    device_id: subdev_walkthrough
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 7
+    type: rssi
+    name: "Walkthrough RSSI"
+    id: walkthrough_rssi
+    device_id: subdev_walkthrough
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Bathroom (Channel 8)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: battery
+    name: "Bathroom Battery"
+    id: bathroom_battery
+    device_id: subdev_bathroom
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 8
+    type: rssi
+    name: "Bathroom RSSI"
+    id: bathroom_rssi
+    device_id: subdev_bathroom
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Kamma's Room (Channel 9)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: battery
+    name: "Kamma's Room Battery"
+    id: kamma_battery
+    device_id: subdev_kamma
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 9
+    type: rssi
+    name: "Kamma's Room RSSI"
+    id: kamma_rssi
+    device_id: subdev_kamma
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
+  # Hubert's Room (Channel 10)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: battery
+    name: "Hubert's Room Battery"
+    id: hubert_battery
+    device_id: subdev_hubert
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_hub
+    channel: 10
+    type: rssi
+    name: "Hubert's Room RSSI"
+    id: hubert_rssi
+    device_id: subdev_hubert
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 1
+    device_class: signal_strength
+    entity_category: diagnostic
+
 # Network & System Configuration
-# ==============================================================================
 captive_portal:
 
 wifi:
