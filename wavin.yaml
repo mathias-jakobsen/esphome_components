@@ -1,0 +1,385 @@
+esphome:
+  name: wavin-ahc9000-gateway
+  friendly_name: "Wavin AHC9000 Gateway"
+  comment: "Production ESPHome integration for Wavin AHC9000 / Jablotron AC-116 Underfloor Heating Controller"
+  includes:
+    - wavin_ahc9000.h
+
+  # Modern ESPHome Native Sub-Devices Feature
+  # Physical rooms/zones exposed as separate devices to Home Assistant with automatic Area assignment
+  devices:
+    - id: subdev_living_room
+      name: "Living Room Underfloor Heating"
+      area: "Living Room"
+    - id: subdev_kitchen
+      name: "Kitchen Underfloor Heating"
+      area: "Kitchen"
+    - id: subdev_master_bedroom
+      name: "Master Bedroom Underfloor Heating"
+      area: "Master Bedroom"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Serial Communication for Wavin Modbus RTU Bus (38400 bps, 8N1)
+uart:
+  id: uart_wavin
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  stop_bits: 1
+  data_bits: 8
+  parity: NONE
+
+# Instantiate Central Data Broker & Protocol Handler Component
+custom_component:
+  - id: wavin_hub
+    lambda: |-
+      auto *hub = new wavin_ahc9000::WavinAHC9000Component(id(uart_wavin));
+      
+      // Optional Flow Control Pin for RS485 Transceivers (e.g. MAX485 DE/RE on GPIO4)
+      // hub->set_flow_control_pin(new GPIOPin(4, gpio::FLAG_OUTPUT));
+      
+      hub->set_update_interval(10000); // Poll Wavin controller registers every 10 seconds
+
+      // Map Parent Device 16 Channel Paired Diagnostic Binary Sensors
+      hub->set_channel_paired_sensor(1, id(wavin_ch1_paired));
+      hub->set_channel_paired_sensor(2, id(wavin_ch2_paired));
+      hub->set_channel_paired_sensor(3, id(wavin_ch3_paired));
+      hub->set_channel_paired_sensor(4, id(wavin_ch4_paired));
+      hub->set_channel_paired_sensor(5, id(wavin_ch5_paired));
+      hub->set_channel_paired_sensor(6, id(wavin_ch6_paired));
+      hub->set_channel_paired_sensor(7, id(wavin_ch7_paired));
+      hub->set_channel_paired_sensor(8, id(wavin_ch8_paired));
+      hub->set_channel_paired_sensor(9, id(wavin_ch9_paired));
+      hub->set_channel_paired_sensor(10, id(wavin_ch10_paired));
+      hub->set_channel_paired_sensor(11, id(wavin_ch11_paired));
+      hub->set_channel_paired_sensor(12, id(wavin_ch12_paired));
+      hub->set_channel_paired_sensor(13, id(wavin_ch13_paired));
+      hub->set_channel_paired_sensor(14, id(wavin_ch14_paired));
+      hub->set_channel_paired_sensor(15, id(wavin_ch15_paired));
+      hub->set_channel_paired_sensor(16, id(wavin_ch16_paired));
+
+      return {hub};
+
+# ==============================================================================
+# PARENT DEVICE (ROOT GATEWAY) DIAGNOSTICS: 16 CHANNEL PAIRED STATUS SENSORS
+# Auto-detected by polling Element Address registers (Category 0x01, Reg 0x00 & 0x01)
+# ==============================================================================
+binary_sensor:
+  - platform: template
+    name: "Wavin Channel 1 Paired Status"
+    id: wavin_ch1_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 2 Paired Status"
+    id: wavin_ch2_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 3 Paired Status"
+    id: wavin_ch3_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 4 Paired Status"
+    id: wavin_ch4_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 5 Paired Status"
+    id: wavin_ch5_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 6 Paired Status"
+    id: wavin_ch6_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 7 Paired Status"
+    id: wavin_ch7_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 8 Paired Status"
+    id: wavin_ch8_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 9 Paired Status"
+    id: wavin_ch9_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 10 Paired Status"
+    id: wavin_ch10_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 11 Paired Status"
+    id: wavin_ch11_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 12 Paired Status"
+    id: wavin_ch12_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 13 Paired Status"
+    id: wavin_ch13_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 14 Paired Status"
+    id: wavin_ch14_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 15 Paired Status"
+    id: wavin_ch15_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+  - platform: template
+    name: "Wavin Channel 16 Paired Status"
+    id: wavin_ch16_paired
+    entity_category: diagnostic
+    icon: "mdi:radiator"
+
+  # --- SUB-DEVICE BINARY SENSORS (LOW BATT, LOST, HEATING DEMAND) ---
+  # Living Room (Consolidated Zone: Channels 1 & 2)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLowBatterySensor(id(wavin_hub), 1);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Living Room Thermostat Low Battery"
+        id: living_room_low_battery
+        device_id: subdev_living_room
+        device_class: battery
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLostSensor(id(wavin_hub), 1);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Living Room Thermostat Offline"
+        id: living_room_lost
+        device_id: subdev_living_room
+        device_class: problem
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneHeatingDemandSensor(id(wavin_hub), {1, 2});
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Living Room Heating Demand"
+        id: living_room_heating_demand
+        device_id: subdev_living_room
+        icon: "mdi:radiator"
+
+  # Kitchen (Single Channel: Channel 3)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLowBatterySensor(id(wavin_hub), 3);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Kitchen Thermostat Low Battery"
+        id: kitchen_low_battery
+        device_id: subdev_kitchen
+        device_class: battery
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLostSensor(id(wavin_hub), 3);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Kitchen Thermostat Offline"
+        id: kitchen_lost
+        device_id: subdev_kitchen
+        device_class: problem
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneHeatingDemandSensor(id(wavin_hub), {3});
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Kitchen Heating Demand"
+        id: kitchen_heating_demand
+        device_id: subdev_kitchen
+        icon: "mdi:radiator"
+
+  # Master Bedroom (Single Channel: Channel 4)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLowBatterySensor(id(wavin_hub), 4);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Master Bedroom Thermostat Low Battery"
+        id: master_bedroom_low_battery
+        device_id: subdev_master_bedroom
+        device_class: battery
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneLostSensor(id(wavin_hub), 4);
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Master Bedroom Thermostat Offline"
+        id: master_bedroom_lost
+        device_id: subdev_master_bedroom
+        device_class: problem
+        entity_category: diagnostic
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneHeatingDemandSensor(id(wavin_hub), {4});
+      App.register_component(s);
+      return {s};
+    binary_sensors:
+      - name: "Master Bedroom Heating Demand"
+        id: master_bedroom_heating_demand
+        device_id: subdev_master_bedroom
+        icon: "mdi:radiator"
+
+# ==============================================================================
+# SUB-DEVICES CLIMATE ENTITIES (ONE UNIFIED ENTITY PER PHYSICAL ROOM/ZONE)
+# ==============================================================================
+climate:
+  # Living Room (Consolidated Sync Group: Channels 1 and 2 mapped to 1 unified climate entity)
+  - platform: custom
+    lambda: |-
+      auto *c = new wavin_ahc9000::WavinZoneClimate(id(wavin_hub), {1, 2});
+      App.register_component(c);
+      return {c};
+    climates:
+      - name: "Living Room Climate"
+        id: climate_living_room
+        device_id: subdev_living_room
+
+  # Kitchen (Single Channel 3)
+  - platform: custom
+    lambda: |-
+      auto *c = new wavin_ahc9000::WavinZoneClimate(id(wavin_hub), {3});
+      App.register_component(c);
+      return {c};
+    climates:
+      - name: "Kitchen Climate"
+        id: climate_kitchen
+        device_id: subdev_kitchen
+
+  # Master Bedroom (Single Channel 4)
+  - platform: custom
+    lambda: |-
+      auto *c = new wavin_ahc9000::WavinZoneClimate(id(wavin_hub), {4});
+      App.register_component(c);
+      return {c};
+    climates:
+      - name: "Master Bedroom Climate"
+        id: climate_master_bedroom
+        device_id: subdev_master_bedroom
+
+# ==============================================================================
+# SUB-DEVICES SENSORS (BATTERY % & WIRELESS SIGNAL STRENGTH RSSI)
+# ==============================================================================
+sensor:
+  # Living Room Sensors (Channel 1)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneBatterySensor(id(wavin_hub), 1);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Living Room Thermostat Battery"
+        id: living_room_battery
+        device_id: subdev_living_room
+        unit_of_measurement: "%"
+        accuracy_decimals: 0
+        device_class: battery
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneRSSISensor(id(wavin_hub), 1);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Living Room Thermostat RSSI"
+        id: living_room_rssi
+        device_id: subdev_living_room
+        unit_of_measurement: "dBm"
+        accuracy_decimals: 1
+        device_class: signal_strength
+        entity_category: diagnostic
+
+  # Kitchen Sensors (Channel 3)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneBatterySensor(id(wavin_hub), 3);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Kitchen Thermostat Battery"
+        id: kitchen_battery
+        device_id: subdev_kitchen
+        unit_of_measurement: "%"
+        accuracy_decimals: 0
+        device_class: battery
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneRSSISensor(id(wavin_hub), 3);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Kitchen Thermostat RSSI"
+        id: kitchen_rssi
+        device_id: subdev_kitchen
+        unit_of_measurement: "dBm"
+        accuracy_decimals: 1
+        device_class: signal_strength
+        entity_category: diagnostic
+
+  # Master Bedroom Sensors (Channel 4)
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneBatterySensor(id(wavin_hub), 4);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Master Bedroom Thermostat Battery"
+        id: master_bedroom_battery
+        device_id: subdev_master_bedroom
+        unit_of_measurement: "%"
+        accuracy_decimals: 0
+        device_class: battery
+
+  - platform: custom
+    lambda: |-
+      auto *s = new wavin_ahc9000::WavinZoneRSSISensor(id(wavin_hub), 4);
+      App.register_component(s);
+      return {s};
+    sensors:
+      - name: "Master Bedroom Thermostat RSSI"
+        id: master_bedroom_rssi
+        device_id: subdev_master_bedroom
+        unit_of_measurement: "dBm"
+        accuracy_decimals: 1
+        device_class: signal_strength
+        entity_category: diagnostic
