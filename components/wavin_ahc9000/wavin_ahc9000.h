@@ -119,67 +119,96 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
   void update() override {
     std::vector<uint16_t> regs;
 
-    for (uint8_t ch = 1; ch <= 16; ch++) {
-      uint8_t ch_page = ch - 1;
-      auto &st = this->channels_[ch - 1];
+    // Staged round-robin polling: poll up to 2 channels per cycle to keep execution non-blocking
+    for (uint8_t i = 0; i < this->poll_channels_per_cycle_; i++) {
+      if (this->next_active_index_ >= 16) this->next_active_index_ = 0;
+      uint8_t ch_num = this->next_active_index_ + 1; // 1..16
+      uint8_t ch_page = ch_num - 1;
+      auto &st = this->channels_[ch_num - 1];
+      uint8_t &step = this->channel_step_[ch_page];
 
-      // 1. Read Channel Primary Element (Category 0x03, Page ch-1, Index 0x02)
-      if (this->read_registers(CAT_CHANNELS, ch_page, CH_PRIMARY_ELEMENT, 1, regs) && !regs.empty()) {
-        uint16_t v = regs[0];
-        st.primary_index = v & CH_PRIMARY_ELEMENT_ELEMENT_MASK;
-        st.all_tp_lost = (v & CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK) != 0;
-        st.paired = (st.primary_index > 0 && !st.all_tp_lost);
-      } else {
-        st.paired = false;
-      }
-
-      // Update root diagnostic paired status binary sensor
-      if (this->channel_paired_sensors_[ch - 1] != nullptr) {
-        this->channel_paired_sensors_[ch - 1]->publish_state(st.paired);
-      }
-
-      if (!st.paired) continue;
-
-      // 2. Read Configuration & Mode (Category 0x02, Page ch-1, Index 0x07)
-      if (this->read_registers(CAT_PACKED, ch_page, PACKED_CONFIGURATION, 1, regs) && !regs.empty()) {
-        uint16_t raw_cfg = regs[0];
-        uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
-        st.mode = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
-      }
-
-      // 3. Read Setpoint Temperature (Category 0x02, Page ch-1, Index 0x00)
-      if (this->read_registers(CAT_PACKED, ch_page, PACKED_MANUAL_TEMPERATURE, 1, regs) && !regs.empty()) {
-        st.setpoint_c = regs[0] / 10.0f;
-      }
-
-      // 4. Read Timer Event / Heating Output Status (Category 0x03, Page ch-1, Index 0x00)
-      if (this->read_registers(CAT_CHANNELS, ch_page, CH_TIMER_EVENT, 1, regs) && !regs.empty()) {
-        bool heating = (regs[0] & CH_TIMER_EVENT_OUTP_ON_MASK) != 0;
-        st.action = heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
-      }
-
-      // 5. Read Element Data (Category 0x01, Page primary_index - 1, Index 0x00, Quantity 11)
-      uint8_t elem_page = st.primary_index - 1;
-      if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
-        st.current_temp_c = regs[ELEM_AIR_TEMPERATURE] / 10.0f;
-        if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
-          float ft = regs[ELEM_FLOOR_TEMPERATURE] / 10.0f;
-          st.floor_temp_c = (ft > 1.0f && ft < 90.0f) ? ft : NAN;
+      // 2 stages per cycle
+      for (int s = 0; s < 2; s++) {
+        switch (step) {
+          case 0: { // Read Primary Element Index
+            if (this->read_registers(CAT_CHANNELS, ch_page, CH_PRIMARY_ELEMENT, 1, regs) && !regs.empty()) {
+              uint16_t v = regs[0];
+              st.primary_index = v & CH_PRIMARY_ELEMENT_ELEMENT_MASK;
+              st.all_tp_lost = (v & CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK) != 0;
+              st.paired = (st.primary_index > 0 && !st.all_tp_lost);
+              if (this->channel_paired_sensors_[ch_num - 1] != nullptr) {
+                this->channel_paired_sensors_[ch_num - 1]->publish_state(st.paired);
+              }
+            }
+            step = 1;
+            break;
+          }
+          case 1: { // Read Configuration & Mode
+            if (st.paired) {
+              if (this->read_registers(CAT_PACKED, ch_page, PACKED_CONFIGURATION, 1, regs) && !regs.empty()) {
+                uint16_t raw_cfg = regs[0];
+                uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
+                st.mode = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
+              }
+            }
+            step = 2;
+            break;
+          }
+          case 2: { // Read Manual Setpoint Temperature
+            if (st.paired) {
+              if (this->read_registers(CAT_PACKED, ch_page, PACKED_MANUAL_TEMPERATURE, 1, regs) && !regs.empty()) {
+                if (regs[0] != 0x7FFF && regs[0] != 0) {
+                  st.setpoint_c = regs[0] / 10.0f;
+                }
+              }
+            }
+            step = 3;
+            break;
+          }
+          case 3: { // Read Timer Event (Heating Output Active)
+            if (st.paired) {
+              if (this->read_registers(CAT_CHANNELS, ch_page, CH_TIMER_EVENT, 1, regs) && !regs.empty()) {
+                bool heating = (regs[0] & CH_TIMER_EVENT_OUTP_ON_MASK) != 0;
+                st.action = heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
+              }
+            }
+            step = 4;
+            break;
+          }
+          case 4: { // Read Element Air Temp, Floor Temp, Battery, RSSI
+            if (st.paired && st.primary_index > 0) {
+              uint8_t elem_page = st.primary_index - 1;
+              if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+                if (regs[ELEM_AIR_TEMPERATURE] != 0x7FFF) {
+                  st.current_temp_c = static_cast<int16_t>(regs[ELEM_AIR_TEMPERATURE]) / 10.0f;
+                }
+                if (regs.size() > ELEM_FLOOR_TEMPERATURE && regs[ELEM_FLOOR_TEMPERATURE] != 0x7FFF) {
+                  float ft = static_cast<int16_t>(regs[ELEM_FLOOR_TEMPERATURE]) / 10.0f;
+                  if (ft > 1.0f && ft < 90.0f) {
+                    st.floor_temp_c = ft;
+                  }
+                }
+                if (regs.size() > ELEM_STATUS) {
+                  st.low_battery = (regs[ELEM_STATUS] & 0x0400) != 0;
+                }
+                if (regs.size() > ELEM_RSSI) {
+                  int8_t signed_rssi = static_cast<int8_t>(regs[ELEM_RSSI] & 0xFF);
+                  st.rssi = -74.0f + (signed_rssi * 0.5f);
+                }
+                if (regs.size() > ELEM_BATTERY_STATUS) {
+                  uint16_t raw_batt = regs[ELEM_BATTERY_STATUS];
+                  uint8_t steps = (raw_batt > 10) ? 10 : static_cast<uint8_t>(raw_batt);
+                  st.battery_pct = steps * 10;
+                }
+              }
+            }
+            step = 0;
+            break;
+          }
         }
-        if (regs.size() > ELEM_STATUS) {
-          uint16_t status_reg = regs[ELEM_STATUS];
-          st.low_battery = (status_reg & 0x0400) != 0;
-        }
-        if (regs.size() > ELEM_RSSI) {
-          int8_t signed_rssi = static_cast<int8_t>(regs[ELEM_RSSI] & 0xFF);
-          st.rssi = -74.0f + (signed_rssi * 0.5f);
-        }
-        if (regs.size() > ELEM_BATTERY_STATUS) {
-          uint16_t raw_batt = regs[ELEM_BATTERY_STATUS];
-          uint8_t steps = (raw_batt > 10) ? 10 : static_cast<uint8_t>(raw_batt);
-          st.battery_pct = steps * 10;
-        }
       }
+
+      this->next_active_index_ = (this->next_active_index_ + 1) % 16;
     }
 
     this->notify_sub_device_entities_();
@@ -312,6 +341,9 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
 
   uint32_t receive_timeout_ms_{1000};
   GPIOPin *flow_control_pin_{nullptr};
+  uint8_t poll_channels_per_cycle_{2};
+  uint8_t next_active_index_{0};
+  uint8_t channel_step_[16] = {0};
   std::array<ChannelState, 16> channels_;
   std::array<binary_sensor::BinarySensor *, 16> channel_paired_sensors_;
   std::vector<WavinUpdatableEntity *> updatable_entities_;
@@ -362,8 +394,12 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     uint8_t primary_ch = this->channels_[0];
     const auto &st = this->parent_->get_channel_data(primary_ch);
 
-    this->current_temperature = st.current_temp_c;
-    this->target_temperature = st.setpoint_c;
+    if (!std::isnan(st.current_temp_c)) {
+      this->current_temperature = st.current_temp_c;
+    }
+    if (!std::isnan(st.setpoint_c)) {
+      this->target_temperature = st.setpoint_c;
+    }
     this->mode = st.mode;
 
     if (this->mode == climate::CLIMATE_MODE_OFF) {
