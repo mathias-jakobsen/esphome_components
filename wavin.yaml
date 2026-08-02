@@ -3,33 +3,51 @@ esphome:
   friendly_name: "Wavin AHC9000 Gateway"
   comment: "Production ESPHome integration for Wavin AHC9000 / Jablotron AC-116 Underfloor Heating Controller"
 
+  # Define Home Assistant Areas in ESPHome
+  areas:
+    - id: kitchen
+      name: "Kitchen-Dining Room"
+    - id: guest_toilet
+      name: "Guest Toilet"
+    - id: bedroom
+      name: "Bedroom"
+    - id: walk_in
+      name: "Walk In"
+    - id: walkthrough
+      name: "Walkthrough"
+    - id: bathroom
+      name: "Bathroom"
+    - id: kammas_room
+      name: "Kamma's Room"
+    - id: huberts_room
+      name: "Hubert's Room"
+
   # Modern ESPHome Native Sub-Devices Feature
-  # Physical rooms/zones exposed as separate devices to Home Assistant with automatic Area assignment
   devices:
     - id: subdev_kitchen
       name: "Kitchen-Dining Room"
-      area_id: "kitchen"
+      area_id: kitchen
     - id: subdev_guest_toilet
       name: "Guest Toilet"
-      area_id: "guest_toilet"
+      area_id: guest_toilet
     - id: subdev_bedroom
       name: "Bedroom"
-      area_id: "bedroom"
+      area_id: bedroom
     - id: subdev_walk_in
       name: "Walk In"
-      area_id: "walk_in"
+      area_id: walk_in
     - id: subdev_walkthrough
       name: "Walkthrough"
-      area_id: "walkthrough"
+      area_id: walkthrough
     - id: subdev_bathroom
       name: "Bathroom"
-      area_id: "bathroom"
+      area_id: bathroom
     - id: subdev_kamma
       name: "Kamma's Room"
-      area_id: "kammas_room"
+      area_id: kammas_room
     - id: subdev_hubert
       name: "Hubert's Room"
-      area_id: "huberts_room"
+      area_id: huberts_room
 
 external_components:
   - source: github://mathias-jakobsen/esphome_components
