@@ -92,6 +92,9 @@ struct ModbusReq {
 
 class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
  public:
+  WavinAHC9000Component() {
+    this->channel_paired_sensors_.fill(nullptr);
+  }
   WavinAHC9000Component(uart::UARTComponent *parent) : uart::UARTDevice(parent) {
     this->channel_paired_sensors_.fill(nullptr);
   }
