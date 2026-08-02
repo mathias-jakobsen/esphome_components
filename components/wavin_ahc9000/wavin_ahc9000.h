@@ -373,6 +373,8 @@ class WavinZoneClimate : public climate::Climate, public Component, public Wavin
     traits.set_visual_min_temperature(5.0f);
     traits.set_visual_max_temperature(35.0f);
     traits.set_visual_target_temperature_step(0.5f);
+    traits.set_visual_current_temperature_step(0.1f);
+    traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
     traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_OFF});
     return traits;
   }
