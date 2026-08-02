@@ -273,11 +273,13 @@ class WavinAHC9000Component : public PollingComponent, public uart::UARTDevice {
     } else if (req.category == CAT_ELEMENTS && req.index == ELEM_AIR_TEMPERATURE) {
       if (regs[0] != 0x7FFF) {
         st.current_temp_c = static_cast<int16_t>(regs[0]) / 10.0f;
+        ESP_LOGI(TAG, "Channel %u Air Temp: %.1f C", req.ch, st.current_temp_c);
       }
     } else if (req.category == CAT_ELEMENTS && req.index == ELEM_BATTERY_STATUS) {
       uint16_t raw_b = regs[0];
       uint8_t steps = (raw_b > 10) ? 10 : static_cast<uint8_t>(raw_b);
       st.battery_pct = steps * 10;
+      ESP_LOGI(TAG, "Channel %u Battery: %u pct", req.ch, (unsigned)st.battery_pct);
     }
 
     this->notify_sub_device_entities_();
