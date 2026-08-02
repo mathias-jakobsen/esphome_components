@@ -30,12 +30,12 @@ async def to_code(config):
         var = await binary_sensor.new_binary_sensor(config)
         cg.add(hub.set_channel_paired_sensor(ch, var))
         return
-    elif sens_type == "low_battery":
+
+    if sens_type == "low_battery":
         var = cg.new_Pvariable(config[CONF_ID], hub, config[CONF_CHANNEL])
     elif sens_type == "lost":
         var = cg.new_Pvariable(config[CONF_ID], hub, config[CONF_CHANNEL])
     elif sens_type == "heating_demand":
         channels = [config[CONF_CHANNEL]] if CONF_CHANNEL in config else config[CONF_CHANNELS]
         var = cg.new_Pvariable(config[CONF_ID], hub, channels)
-    await cg.register_component(var, config)
     await binary_sensor.register_binary_sensor(var, config)
