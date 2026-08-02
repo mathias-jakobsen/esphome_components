@@ -26,20 +26,20 @@ CONFIG_SCHEMA = cv.typed_schema(
                 cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
                 cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
             }
-        ),
+        ).extend(cv.COMPONENT_SCHEMA),
         "lost": binary_sensor.binary_sensor_schema(WavinZoneLostSensor).extend(
             {
                 cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
                 cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
             }
-        ),
+        ).extend(cv.COMPONENT_SCHEMA),
         "heating_demand": binary_sensor.binary_sensor_schema(WavinZoneHeatingDemandSensor).extend(
             {
                 cv.GenerateID(CONF_WAVIN_ID): cv.use_id(WavinAHC9000Component),
                 cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
                 cv.Optional(CONF_CHANNELS): cv.ensure_list(cv.int_range(min=1, max=16)),
             }
-        ),
+        ).extend(cv.COMPONENT_SCHEMA),
     },
     lower=True,
 )
@@ -61,4 +61,5 @@ async def to_code(config):
         channels = [config[CONF_CHANNEL]] if CONF_CHANNEL in config else config[CONF_CHANNELS]
         var = cg.new_Pvariable(config[CONF_ID], hub, channels)
 
+    await cg.register_component(var, config)
     await binary_sensor.register_binary_sensor(var, config)
